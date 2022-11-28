@@ -13,8 +13,7 @@ setClass("xsAnnotate",
                     annoID="matrix",
                     annoGrp="matrix",
                     isoID="matrix",
-                    polarity="character",
-                    runParallel="list"),
+                    polarity="character"),
          contains=c("Versioned"),
     prototype(
                     groupInfo= matrix(ncol=0,nrow=0),
@@ -30,6 +29,5 @@ setClass("xsAnnotate",
                     annoGrp=matrix(ncol=4, nrow=0),
                     isoID=matrix(ncol=4, nrow=0),
                     polarity="",
-                    runParallel=NULL,
                     new("Versioned", versions=c(CAMERA="1.13.333")))
             );

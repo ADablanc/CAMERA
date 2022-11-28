@@ -19,18 +19,17 @@ importFrom(Biobase, validMsg)
 
 export("annotate",
        "annotateDiffreport",
-       "cleanParallel",
        "combinexsAnnos",
        "getIsotopeCluster",
        "getpspectra",
        "findKendrickMasses",
-       "findNeutralLoss", 
+       "findNeutralLoss",
        "findNeutralLossSpecs",
        "pspec2metfrag",
        "pspec2metfusion",
-       "xsAnnotate", 
+       "xsAnnotate",
        "compoundQuantiles",
-       "compoundLibraries", 
+       "compoundLibraries",
        "massWindowSizes")
 
 exportClasses("xsAnnotate")
@@ -60,3 +59,5 @@ exportMethods("setDefaultLists",
               "setDefaultParams",
               "setParams",
               "generateRules")
+
+import("BiocParallel")

@@ -5,7 +5,7 @@ annotateGrpMPI2 <- function(params){
   result <- vector(mode="list", length=length(params$i));
   names(result) <- params$i;
   for(ii in 1:length(params$i)){
-    res <- CAMERA:::annotateGrp(papply_commondata$pspectra[[params$i[[ii]]]], papply_commondata$imz, 
+    res <- CAMERA:::annotateGrp(papply_commondata$pspectra[[params$i[[ii]]]], papply_commondata$imz,
                                 papply_commondata$rules,papply_commondata$mzabs,papply_commondata$devppm,
                                 papply_commondata$isotopes, papply_commondata$quasimolion,
                                 papply_commondata$rules.idx);
@@ -17,12 +17,10 @@ annotateGrpMPI2 <- function(params){
 }
 
 annotateGrpMPI <- function(params, globalParams){
-  library(CAMERA);
-
   result <- vector(mode="list", length=length(params$i));
   names(result) <- params$i;
   for(ii in 1:length(params$i)){
-    res <- CAMERA:::annotateGrp(globalParams$pspectra[[params$i[[ii]]]],
+    res <- annotateGrp(globalParams$pspectra[[params$i[[ii]]]],
                                 globalParams$imz,
                                 globalParams$rules,
                                 globalParams$mzabs,
@@ -49,49 +47,49 @@ annotateGrp <- function(ipeak, imz, rules, mzabs, devppm, isotopes, quasimolion,
   }
 
   ML <- massDiffMatrix(mz[naIdx], rules[rules.idx,]);
-  
+
   hypothese <- createHypothese(ML, rules[rules.idx, ], devppm, mzabs, naIdx);
-  
+
   #create hypotheses
   if(is.null(nrow(hypothese)) || nrow(hypothese) < 2 ){
     return(NULL);
   }
 
-  #remove hypotheses, which violates via isotope annotation discovered ion charge 
+  #remove hypotheses, which violates via isotope annotation discovered ion charge
   if(length(isotopes) > 0){
     hypothese <- checkIsotopes(hypothese, isotopes, ipeak);
   }
-  
+
   if(nrow(hypothese) < 2){
     return(NULL);
   }
-  
+
   #Test if hypothese grps include mandatory ions
   #Filter Rules #2
   if(length(quasimolion) > 0){
     hypothese <- checkQuasimolion(hypothese, quasimolion);
   }
-  
+
   if(nrow(hypothese) < 2){
     return(NULL);
   };
-  
+
   #Entferne Hypothesen, welche gegen OID-Score&Kausalität verstossen!
   hypothese <- checkOidCausality(hypothese, rules[rules.idx, ]);
   if(nrow(hypothese) < 2){
     return(NULL);
   };
-  
+
   #Prüfe IPS-Score
   hypothese <- checkIps(hypothese)
   if(nrow(hypothese) < 2){
     return(NULL)
   }
-  
+
   #We have hypotheses and want to add neutral losses
   if("typ" %in% colnames(rules)){
     hypothese <- addFragments(hypothese, rules, mz)
-  
+
     hypothese <- resolveFragmentConnections(hypothese)
   }
   return(hypothese);
@@ -122,7 +120,7 @@ createHypothese <- function(ML, rules, devppm, mzabs, naIdx){
     if(is.null(hashmap[[i]])){
       next;
     }
-      
+
     candidates <- ML.vec[hashmap[[i]]];
     candidates.index <- hashmap[[i]];
     if(i != 1 && !is.null(hashmap[[i-1]]) && min(candidates) < i+(2*devppm*i+mzabs)){
@@ -130,13 +128,13 @@ createHypothese <- function(ML, rules, devppm, mzabs, naIdx){
       if(length(index)>0) {
         candidates <- c(candidates, ML.vec[hashmap[[i-1]]][index]);
         candidates.index <- c(candidates.index,hashmap[[i-1]][index]);
-      }    
+      }
     }
-      
+
     if(length(candidates) < 2){
       next;
     }
-      
+
     tol <- max(2*devppm*mean(candidates, na.rm=TRUE))+ mzabs;
     result <- cutree(hclust(dist(candidates)), h=tol);
     index <- which(table(result) >= 2);
@@ -169,7 +167,7 @@ createHypothese <- function(ML, rules, devppm, mzabs, naIdx){
 resolveFragmentConnections <- function(hypothese){
   #Order hypothese after mass
   hypothese <- hypothese[order(hypothese[, "mass"], decreasing=TRUE), ]
-  
+
   for(massgrp in unique(hypothese[, "massgrp"])){
     index <- which(hypothese[, "massgrp"] == massgrp & !is.na(hypothese[, "parent"]))
     if(length(index) > 0) {
@@ -192,24 +190,24 @@ addFragments <- function(hypothese, rules, mz){
     #no fragment exists in rules
     return(hypothese)
   }
-  
+
   orderMZ <- cbind(order(mz),order(order(mz)))
   sortMZ <- cbind(mz,1:length(mz))
   sortMZ <- sortMZ[order(sortMZ[,1]),]
-  
+
   for(massgrp in unique(hypothese[, "massgrp"])){
-    for(index in which(hypothese[, "ruleID"] %in% unique(fragments[, "parent"]) & 
+    for(index in which(hypothese[, "ruleID"] %in% unique(fragments[, "parent"]) &
       hypothese[, "massgrp"] == massgrp)){
       massID <- hypothese[index, "massID"]
       ruleID <- hypothese[index, "ruleID"]
       indexFrag <- which(fragments[, "parent"] == ruleID)
-      
+
       while(length(massID) > 0){
-        result <- fastMatch(sortMZ[1:orderMZ[massID[1],2],1], mz[massID[1]] + 
+        result <- fastMatch(sortMZ[1:orderMZ[massID[1],2],1], mz[massID[1]] +
           fragments[indexFrag, "massdiff"], tol=0.05)
         invisible(sapply(1:orderMZ[massID[1],2], function(x){
           if(!is.null(result[[x]])){
-            massID <<- c(massID, orderMZ[x,1]);        
+            massID <<- c(massID, orderMZ[x,1]);
             indexFrags <- indexFrag[result[[x]]];
             tmpRes <- cbind(orderMZ[x,1], as.numeric(rownames(fragments)[indexFrags]), fragments[indexFrags, c("nmol", "charge")],
                                              hypothese[index, "mass"], fragments[indexFrags, c("score")],
@@ -219,7 +217,7 @@ addFragments <- function(hypothese, rules, mz){
           }
         }))
         massID <- massID[-1];
-      }    
+      }
     }
   }
   return(hypothese)
@@ -233,7 +231,7 @@ getderivativeIons <- function(annoID, annoGrp, rules, npeaks){
     if(nrow(annoID) < 1){
       return(derivativeIons);
     }
-    
+
     for(i in 1:nrow(annoID)){
         peakid  <-  annoID[i, 1];
         grpid   <-  annoID[i, 2];
@@ -242,8 +240,8 @@ getderivativeIons <- function(annoID, annoGrp, rules, npeaks){
 #         if(is.null(derivativeIons[[peakid]])){
 #           #Peak has no annotation
 #           if(charge == 0 | rules[ruleid, "charge"] == charge){
-#             derivativeIons[[peakid]][[1]] <- list(rule_id = ruleid, charge = rules[ruleid, "charge"], 
-#                                                   nmol= rules[ruleid, "nmol"], name=paste(rules[ruleid, "name"]), 
+#             derivativeIons[[peakid]][[1]] <- list(rule_id = ruleid, charge = rules[ruleid, "charge"],
+#                                                   nmol= rules[ruleid, "nmol"], name=paste(rules[ruleid, "name"]),
 #                                                   mass=annoGrp[which(annoGrp[, "id"] == grpid), 2],parent=parent)
 #             }
 #         }else{
@@ -257,15 +255,15 @@ getderivativeIons <- function(annoID, annoGrp, rules, npeaks){
               name <- paste(rules[ruleid, "name"]);
               for(ii in seq(along=derivativeIons[[parent]])){
                 if(derivativeIons[[parent]][[ii]]$mass == mass){
-                  
+
                   break;
-                }                  
+                }
               }
             }
-            derivativeIons[[peakid]][[(length(derivativeIons[[peakid]])+1)]] <- 
-              list(rule_id = ruleid, charge=rules[ruleid, "charge"], 
-                   nmol=rules[ruleid, "nmol"], name=name, 
-                   mass=mass, 
+            derivativeIons[[peakid]][[(length(derivativeIons[[peakid]])+1)]] <-
+              list(rule_id = ruleid, charge=rules[ruleid, "charge"],
+                   nmol=rules[ruleid, "nmol"], name=name,
+                   mass=mass,
                    parent=parent)
           }
 #         }
@@ -291,8 +289,8 @@ checkIps <- function(hypothese){
   for(hyp in 1:nrow(hypothese)){
     if(length(id <- which(hypothese[, "massID"] == hypothese[hyp, "massID"] & hypothese[, "check"] != 0)) > 1){
       masses <- hypothese[id, "mass"]
-      nmasses <- sapply(masses, function(x) { 
-                                  sum(hypothese[which(hypothese[, "mass"] == x), "score"]) 
+      nmasses <- sapply(masses, function(x) {
+                                  sum(hypothese[which(hypothese[, "mass"] == x), "score"])
                                   })
       masses <- masses[-which(nmasses == max(nmasses))];
       if(length(masses) > 0){
@@ -300,7 +298,7 @@ checkIps <- function(hypothese){
       }
     }
   }
-  
+
   hypothese <- hypothese[which(hypothese[, "check"]==TRUE), ,drop=FALSE];
   #check if hypothese grps annotate at least two different peaks
   hypothese <- checkHypothese(hypothese)
@@ -313,11 +311,11 @@ checkOidCausality <- function(hypothese,rules){
     hyp.nmol <- which(hypothese[, "massgrp"] == hyp & hypothese[, "nmol"] > 1)
 
     for(hyp.nmol.idx in hyp.nmol){
-      if(length(indi <- which(hypothese[, "mass"] == hypothese[hyp.nmol.idx, "mass"] & 
+      if(length(indi <- which(hypothese[, "mass"] == hypothese[hyp.nmol.idx, "mass"] &
         abs(hypothese[, "charge"]) == hypothese[, "nmol"])) > 1){
         if(hyp.nmol.idx %in% indi){
           #check if [M+H] [2M+2H]... annotate the same molecule
-          massdiff <- rules[hypothese[indi, "ruleID"], "massdiff"] / 
+          massdiff <- rules[hypothese[indi, "ruleID"], "massdiff"] /
             rules[hypothese[indi, "ruleID"], "charge"]
           if(length(indi_new <- which(duplicated(massdiff))) > 0){
             hypothese[hyp.nmol.idx, "check"] <- 0;
@@ -326,7 +324,7 @@ checkOidCausality <- function(hypothese,rules){
       }
     }
   }
-    
+
 #     #check nmol
 #     if(hypothese[hyp, "nmol"] > 1){
 #       #nmol > 1;
@@ -385,11 +383,11 @@ checkQuasimolion <- function(hypothese, quasimolion){
       hypothese[which(hypothese[, "mass"] == hypomass[mass]), "check"] = 0;
     }
   }
-  
+
   hypothese <- hypothese[which(hypothese[, "check"]==TRUE), , drop=FALSE];
   #check if hypothese grps annotate at least two different peaks
   hypothese <- checkHypothese(hypothese)
-    
+
   return(hypothese)
 }
 
@@ -411,24 +409,24 @@ checkIsotopes <- function(hypothese, isotopes, ipeak){
   hypothese <- hypothese[which(hypothese[, "check"]==TRUE), ,drop=FALSE];
   #check if hypothese grps annotate at least two different peaks
   hypothese <- checkHypothese(hypothese)
-  
+
   return(hypothese)
 }
 
 checkHypothese <- function(hypothese){
   if(is.null(nrow(hypothese))){
     hypothese <- matrix(hypothese, byrow=F, ncol=8)
-  } 
+  }
   colnames(hypothese) <- c("massID", "ruleID", "nmol", "charge", "mass", "score", "massgrp", "check")
   for(i in unique(hypothese[,"massgrp"])){
    if(length(unique(hypothese[which(hypothese[, "massgrp"] == i), "massID"])) == 1){
     ##only one mass annotated
     hypothese <- hypothese[-(which(hypothese[,"massgrp"]==i)), , drop=FALSE]
-   } 
+   }
   }
   return(hypothese)
 }
-  
+
 
 add_same_oidscore <-function(hypo,adducts,adducts_no_oid){
         hypo_new<-matrix(NA,ncol=6)
@@ -449,7 +447,7 @@ massDiffMatrix <- function(m, rules){
   #rules - annotation rules
   nRules <- nrow(rules);
   DM   <- matrix(NA, length(m), nRules)
-  
+
   for (i in seq_along(m)){
     for (j in seq_len(nRules)){
       DM[i, j] <- (abs(rules[j, "charge"] * m[i]) - rules[j, "massdiff"]) / rules[j, "nmol"]    # ((z*m) - add) /n

@@ -14,19 +14,19 @@ test.anno_single <- function() {
     checkEqualsNumeric(anF@pspectra[[5]][5],86)
 
     ## groupCORR without groupFWHM
-    anC <- groupCorr(an) 
+    anC <- groupCorr(an, BPPARAM=SerialParam())
     checkEqualsNumeric(length(anC@pspectra),48)
 
     ## groupCORR with groupFWHM
-    anFC <- groupCorr(anF) 
+    anFC <- groupCorr(anF, BPPARAM=SerialParam())
     checkEqualsNumeric(length(anFC@pspectra),48)
 
     ## groupCorr with  psg_list
-    anFCp <- groupCorr(anF, psg_list=c(5,6,7,8,9,10,11,12)) 
-        
+    anFCp <- groupCorr(anF, psg_list=c(5,6,7,8,9,10,11,12), BPPARAM=SerialParam())
+
     ## groupCorr with findIsotopes before
     anI <- findIsotopes(anF)
-    anIC <- groupCorr(anI)
+    anIC <- groupCorr(anI, BPPARAM=SerialParam())
     checkEqualsNumeric(length(anIC@pspectra),48)
 
         ## findIsotopes without group before
@@ -36,22 +36,22 @@ test.anno_single <- function() {
     ## findAdducts without anything before
     file  <- system.file('rules/primary_adducts_pos.csv', package = "CAMERA")
     rules <- read.csv(file)
-    anA <- findAdducts(an, polarity="positive",rules=rules)
+    anA <- findAdducts(an, polarity="positive",rules=rules, BPPARAM=SerialParam())
     checkEqualsNumeric(length(unique(anA@annoID[,1])),55)
 
-    ## findIsotopes and findAdducts 
+    ## findIsotopes and findAdducts
     anFI <- findIsotopes(anFC)
     checkEqualsNumeric(nrow(anFI@isoID),23)
-    anFA <- findAdducts(anFI, polarity="positive")
+    anFA <- findAdducts(anFI, polarity="positive", BPPARAM=SerialParam())
     checkEqualsNumeric(length(unique(anFA@annoID[,1])),38)
 
     ## findAdducts with psg_list
-    anFAc <- findAdducts(anFI, polarity="positive", psg_list=c(5,6,7,8,9,10,11,12))
+    anFAc <- findAdducts(anFI, polarity="positive", psg_list=c(5,6,7,8,9,10,11,12), BPPARAM=SerialParam())
     checkEqualsNumeric(length(unique(anFAc@annoID[,1])),7)
     }
 
 test.anno_multi <- function() {
-    library(faahKO)         
+    library(faahKO)
     filepath <- system.file("cdf", package = "faahKO")
     xsg <- group(faahko)
     ##  groupCorr after groupFWHM

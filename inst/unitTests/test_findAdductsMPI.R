@@ -9,15 +9,14 @@ test.anno_single <- function() {
     anI  <- findIsotopes(anF)
     file  <- system.file('rules/primary_adducts_pos.csv', package = "CAMERA")
     rules <- read.csv(file)
-    anFA <- findAdducts(anI,polarity="positive",rules=rules)
+    anFA <- findAdducts(anI,polarity="positive",rules=rules, BPPARAM=SerialParam())
     checkEqualsNumeric(length(unique(anFA@annoID[,1])),30)
-    cleanParallel(an)
 #  }
 }
 
 test.anno_multi <- function() {
     library(faahKO)
-#    if(require("Rmpi", quietly=TRUE)){         
+#    if(require("Rmpi", quietly=TRUE)){
       filepath <- system.file("cdf", package = "faahKO")
       xsg <- group(faahko)
 
@@ -31,8 +30,7 @@ test.anno_multi <- function() {
       xsaFI <- findIsotopes(xsaC)
       xsaFA <- findAdducts(xsaFI, polarity="positive",rules=rules)
       checkEqualsNumeric(length(unique(xsaFA@annoID[,1])),20)
-    cleanParallel(xsa)
-    
+
       xsa <- xsAnnotate(xsg, sample=c(1:8)) # ,nSlaves=2) Disabled because of unconfigured RMPI on BioC Build machines
 
       xsaF <- groupFWHM(xsa, sigma=6, perfwhm=0.6)
@@ -40,7 +38,6 @@ test.anno_multi <- function() {
       xsaFI <- findIsotopes(xsaC)
       xsaFA <- findAdducts(xsaFI, polarity="positive",rules=rules)
       checkEqualsNumeric(length(unique(xsaFA@annoID[,1])),28)
-    cleanParallel(xsa)
 
       xsa <- xsAnnotate(xsg, sample=NA) # ,nSlaves=2) Disabled because of unconfigured RMPI on BioC Build machines
       xsaF <- groupFWHM(xsa, sigma=6, perfwhm=0.6)
@@ -48,6 +45,5 @@ test.anno_multi <- function() {
       xsaFI <- findIsotopes(xsaC)
       xsaFA <- findAdducts(xsaFI, polarity="positive",rules=rules)
       checkEqualsNumeric(length(unique(xsaFA@annoID[,1])),16)
-    cleanParallel(xsa)
 #    }
 }

@@ -1,4 +1,4 @@
-xsAnnotate <- function(xs=NULL, sample=NA, nSlaves=1, polarity=NULL){
+xsAnnotate <- function(xs=NULL, sample=NA, polarity=NULL){
 
  ## sample is:
  ### NA for maxInt-way
@@ -6,19 +6,19 @@ xsAnnotate <- function(xs=NULL, sample=NA, nSlaves=1, polarity=NULL){
  ##  -1 for specDist way (to be implemented)
   if(is.null(xs)) { stop("no argument was given"); }
   else if(!class(xs)=="xcmsSet") stop("xs is no xcmsSet object ");
-  
+
   object  <- new("xsAnnotate");
-  
-  if(length(sampnames(xs)) > 1 & !nrow(xs@groups) > 0) {  
+
+  if(length(sampnames(xs)) > 1 & !nrow(xs@groups) > 0) {
       # more than one sample
       # checking alignment
-      stop ('First argument must be a xcmsSet with group information or contain only one sample.') 
+      stop ('First argument must be a xcmsSet with group information or contain only one sample.')
   }
 
   # check multiple sample selection
   if(length(sample) > 1){
     #example sample <- c(1,2,3,4,5)
-  
+
     if(all(sample <= length(xs@filepaths)) & all(sample > 0)){
       #all sample values are in allowed range
       object@sample <- sample;
@@ -41,64 +41,21 @@ xsAnnotate <- function(xs=NULL, sample=NA, nSlaves=1, polarity=NULL){
         object@sample <-  sample;
       }else if(length(xs@filepaths) < sample | sample < 1) {
         stop("Parameter sample must be lower equal than number of samples and greater than 0.\n")
-      }else{       
+      }else{
         object@sample <-  sample;
       }
     }
   }
 
   object@groupInfo <- getPeaks_selection(xs);
-  runParallel <- list()
-  runParallel$enable   <-  0;
-
-  if (nSlaves > 1) {
-    ## If MPI is available ...
-    rmpi = "Rmpi"
-    opt.warn <- options("warn")$warn
-    options("warn" = -1) 
-    if ((Sys.info()["sysname"] != "Windows") && require(rmpi,character.only=TRUE) && !is.null(nSlaves)) {
-      if (is.loaded('mpi_initialize')) {
-        #test if not already slaves are running!
-        if(mpi.comm.size() >0){ 
-          warning("There are already intialized mpi slaves on your machine.\nCamera will try to uses them!\n");
-          runParallel$enable <-1;
-          runParallel$mode <- rmpi;
-        }else{
-          mpi.spawn.Rslaves(nslaves=nSlaves, needlog=FALSE)
-          if(mpi.comm.size() > 1){
-            #Slaves have successfull spawned
-            runParallel$enable <-1;
-            runParallel$mode <- rmpi;
-          }else{ warning("Spawning of mpi slaves have failed. CAMERA will run without parallelization.\n");}
-        }
-      }else {
-          #And now??
-          warning("DLL mpi_initialize is not loaded. Run single core mode!\n");
-      }
-    } else {
-      #try local sockets using snow package
-      snow = "snow"
-      if (try(require(snow,character.only=TRUE,quietly=TRUE))) {
-        cat("Starting snow cluster with",nSlaves,"local sockets.\n")
-        snowclust <- makeCluster(nSlaves, type = "SOCK")
-        runParallel$enable <- 1
-        runParallel$mode <- snow;
-        runParallel$cluster <- snowclust
-      }
-    }
-    options("warn" = opt.warn)
-    cat("Run cleanParallel after processing to remove the spawned slave processes!\n")
-  }
 
   if(!is.null(polarity)){
     if(is.na(match.arg(polarity, c("positive","negative")))){
-      stop("Parameter polarity is unknown: ", graphMethod,"\n")  
+      stop("Parameter polarity is unknown: ", graphMethod,"\n")
     }else{
       object@polarity <- polarity;
     }
   }
-  object@runParallel<-runParallel;
-
   colnames(object@annoID) <-  c("id","grpID","ruleID","parentID");
   colnames(object@annoGrp)<-  c("id","mass","ips","psgrp");
   colnames(object@isoID)  <-  c("mpeak","isopeak","iso","charge")
@@ -117,12 +74,12 @@ setMethod("show", "xsAnnotate", function(object){
   }else{
     cat("Include no xcmsSet set\n");
   }
-    
+
   #Show polarity if avaiable
   if(length(object@polarity) > 0){
     cat("Polarity mode is set to: ",object@polarity,"\n");
   }
-    
+
   #Show samples selection
   if(is.null(object@sample)){
     cat("Parameter sample not set\n");
@@ -131,11 +88,11 @@ setMethod("show", "xsAnnotate", function(object){
       cat(paste("Using automatic sample selection\n"));
     } else if(all(object@sample > -1)){
       cat("Using sample(s): ",paste(object@sample),"\n");
-    } else { 
+    } else {
       cat(paste("Using complete measurement\n"));
     }
   }
-  
+
   #Show isotope information
   if(length(object@isotopes) > 0){
     cnt <- nrow(object@isoID)
@@ -151,9 +108,6 @@ setMethod("show", "xsAnnotate", function(object){
   #Show memory information
   memsize <- object.size(object)
   cat("Memory usage:", signif(memsize/2^20, 3), "MB\n");
-  if(!is.null(object@runParallel) && object@runParallel$enable == 1){
-    cat("CAMERA runs in parallel mode!\n");
-  }
 })
 
 ###End Constructor###
@@ -162,30 +116,30 @@ setGeneric("groupComplete", function(object,...)
   standardGeneric("groupComplete"))
 
 setMethod("groupComplete", "xsAnnotate", function(object, h=NULL,...) {
-  
+
   sample    <- object@sample;
   pspectra  <- list();
   psSamples <- NA;
-  
+
   #generate distance matrix
   nPeaks <- nrow(object@groupInfo)
-  
+
   distMat <- matrix(NA, nrow=nPeaks, ncol=nPeaks)
 
   # First Part of Score
   # Remove peaks combination which are to far away
-  
+
   rt <- object@xcmsSet@peaks[, c("rtmax","rtmin","rt"),drop=FALSE]
   max.Rt <-  max((rt[, 1]-rt[, 3]), (rt[, 3]-rt[, 2]))
   distRT <- dist(object@groupInfo[,"rt"], method="manhattan")
   if(is.null(h)){
-    result <- cutree(hclust(distRT), h=max.Rt/2)    
+    result <- cutree(hclust(distRT), h=max.Rt/2)
   }else if(is.numeric(h)){
     result <- cutree(hclust(distRT), h=h)
   } else {
     stop("h must be numeric!\n")
   }
-  
+
 
   for(i in unique(result)){
     index <- which(result == i)
@@ -203,15 +157,15 @@ setGeneric("groupDen", function(object, bw=5, ...)
   standardGeneric("groupDen"))
 
 setMethod("groupDen", "xsAnnotate", function(object, bw=5, ...) {
-  
+
   sample    <- object@sample;
   pspectra  <- list();
   psSamples <- NA;
 
   #generate distance matrix
   nPeaks <- nrow(object@groupInfo)
-  rt <- object@groupInfo[ ,"rt"]  
-  
+  rt <- object@groupInfo[ ,"rt"]
+
   den <- density(rt, bw, from = min(rt)-3*bw, to = max(rt)+3*bw)
   maxden <- max(den$y)
   deny <- den$y
@@ -224,7 +178,7 @@ setMethod("groupDen", "xsAnnotate", function(object, bw=5, ...) {
     snum <- snum + length(gidx)
   }
   psSamples <- rep(sample, length(pspectra))
-  
+
   object@pspectra  <- pspectra;
   object@psSamples <- psSamples;
   cat("Created", length(object@pspectra), "pseudospectra.\n")
@@ -232,11 +186,11 @@ setMethod("groupDen", "xsAnnotate", function(object, bw=5, ...) {
 })
 
 ###xsAnnotate generic Methods###
-setGeneric("groupFWHM", function(object, sigma=6, perfwhm=0.6, intval="maxo") 
+setGeneric("groupFWHM", function(object, sigma=6, perfwhm=0.6, intval="maxo")
   standardGeneric("groupFWHM"))
 
 setMethod("groupFWHM", "xsAnnotate", function(object, sigma=6, perfwhm=0.6, intval="maxo") {
-  # grouping after retentiontime 
+  # grouping after retentiontime
   # sigma - number of standard deviation arround the mean (6 = 2 x 3 left and right)
   # perfwhm - 0.3;
 
@@ -279,21 +233,21 @@ setMethod("groupFWHM", "xsAnnotate", function(object, sigma=6, perfwhm=0.6, intv
           return(max(val))
         }
       }, peakmat));
-      
+
       maxo[which(is.na(maxo))] <- -1;
       maxo      <- cbind(1:length(maxo),maxo);
-      
-      #highest peak index 
+
+      #highest peak index
       int.max   <- as.numeric(apply(gvals, 1, function(x, peakmat){which.max(peakmat[x, intval])}, peakmat));
 
-      peakrange <- matrix(apply(gvals, 1, function(x, peakmat) { 
+      peakrange <- matrix(apply(gvals, 1, function(x, peakmat) {
         val <- peakmat[x, intval];
         if(length(na.omit(val)) == 0){
           return(c(0,1));
         } else {
           return(peakmat[x[which.max(val)], c("rtmin", "rtmax")]);
         }
-      }, peakmat), ncol=2, byrow=TRUE); 
+      }, peakmat), ncol=2, byrow=TRUE);
 
       colnames(peakrange) <- c("rtmin", "rtmax")
 
@@ -304,7 +258,7 @@ setMethod("groupFWHM", "xsAnnotate", function(object, sigma=6, perfwhm=0.6, intv
           rt.max <- peakrange[iint, "rtmax"]; #begin and end of the highest peak
           hwhm   <- ((rt.max-rt.min) / sigma * 2.35 * perfwhm) / 2; #fwhm of the highest peak
           #all other peaks whose retensiontimes are in the fwhm of the highest peak
-          irt    <- which(groupmat[, 'rtmed'] > (rtmed-hwhm) & groupmat[, 'rtmed'] < (rtmed + hwhm)) 
+          irt    <- which(groupmat[, 'rtmed'] > (rtmed-hwhm) & groupmat[, 'rtmed'] < (rtmed + hwhm))
           if(length(irt) > 0){
               #if peaks are found
               idx <- maxo[irt,1];
@@ -313,7 +267,7 @@ setMethod("groupFWHM", "xsAnnotate", function(object, sigma=6, perfwhm=0.6, intv
               maxo <- maxo[-irt, ,drop=FALSE]; #set itensities of peaks to NA, due to not to be found in the next cycle
               groupmat   <- groupmat[-irt, ,drop=FALSE];
               peakrange  <- peakrange[-irt, ,drop=FALSE];
-          }else{              
+          }else{
               idx <- maxo[iint,1];
               cat("Warning: Feature ",idx," looks odd for at least one peak. Please check afterwards.\n");
               pspectra[[length(pspectra)+1]] <- idx; #create groups
@@ -336,7 +290,7 @@ setMethod("groupFWHM", "xsAnnotate", function(object, sigma=6, perfwhm=0.6, intv
           rt.max <- peakmat[iint, "rtmax"]; #begin and end of the highest peak
           hwhm   <- ((rt.max - rt.min) / sigma * 2.35 * perfwhm) / 2; #fwhm of the highest peak
           #all other peaks whose retensiontimes are in the fwhm of the highest peak
-          irt    <- which(peakmat[, 'rt'] > (rtmed - hwhm) & peakmat[, 'rt'] < (rtmed + hwhm)) 
+          irt    <- which(peakmat[, 'rt'] > (rtmed - hwhm) & peakmat[, 'rt'] < (rtmed + hwhm))
           if(length(irt)>0){
               #if peaks are found
               idx <- maxo[irt,1];
@@ -362,18 +316,18 @@ setMethod("groupFWHM", "xsAnnotate", function(object, sigma=6, perfwhm=0.6, intv
 })
 
 
-setGeneric("groupCorr",function(object, cor_eic_th=0.75, pval=0.05, graphMethod="hcs", 
-                                calcIso = FALSE, calcCiS = TRUE, calcCaS = FALSE, psg_list=NULL, 
-                                xraw=NULL, cor_exp_th=0.75, intval="into", ...) standardGeneric("groupCorr"));
+setGeneric("groupCorr",function(object, cor_eic_th=0.75, pval=0.05, graphMethod="hcs",
+                                calcIso = FALSE, calcCiS = TRUE, calcCaS = FALSE, psg_list=NULL,
+                                xraw=NULL, cor_exp_th=0.75, intval="into", BPPARAM=bpparam(), ...) standardGeneric("groupCorr"));
 
-setMethod("groupCorr","xsAnnotate", function(object, cor_eic_th=0.75, pval=0.05, 
-                                             graphMethod="hcs", calcIso = FALSE, calcCiS = TRUE, 
+setMethod("groupCorr","xsAnnotate", function(object, cor_eic_th=0.75, pval=0.05,
+                                             graphMethod="hcs", calcIso = FALSE, calcCiS = TRUE,
                                              calcCaS = FALSE, psg_list=NULL, xraw=NULL,
-                                             cor_exp_th=0.75, intval="into") {
+                                             cor_exp_th=0.75, intval="into", BPPARAM=bpparam()) {
   if (! (calcCiS || calcCaS)) {
     stop ("At least one of calcCiS or calcCaS has to be TRUE.\n");
   }
-  
+
   if (!is.numeric(cor_eic_th) || cor_eic_th < 0 || cor_eic_th > 1){
     stop ("Parameter cor_eic_th must be numeric and between 0 and 1.\n");
   }
@@ -381,43 +335,43 @@ setMethod("groupCorr","xsAnnotate", function(object, cor_eic_th=0.75, pval=0.05,
   if (!is.numeric(cor_exp_th) || cor_exp_th < 0 || cor_exp_th > 1){
     stop ("Parameter cor_exp_th must be numeric and between 0 and 1.\n");
   }
-  
+
   if (!is.numeric(pval) || pval < 0 || pval > 1){
     stop ("Parameter pval must be numeric and between 0 and 1.\n");
   }
-  
-  
+
+
   checkMethod <- match.arg(graphMethod, c("hcs","lpc"))
   if (is.na(checkMethod)){
     stop("Parameter graphMethod is unknown: ", graphMethod,"\n")
   }
   rm(checkMethod)
-  
+
   if (!is.logical(calcIso)) {
     stop ("Parameter calcIso must be logical.\n");
   }
-  
+
   if (!is.logical(calcCiS)) {
     stop ("Parameter calcCiS must be logical.\n");
   }
-  
+
   if (!is.logical(calcCaS)) {
     stop ("Parameter calcCaS must be logical.\n");
   }
-  
+
   if (!is.null(psg_list) && (!is.numeric(psg_list) || any(psg_list > length(object@pspectra)) || any(psg_list < 0)) ) {
     stop ("If parameter psg_list is used, it must be numeric and contains only indices lower or equal maximum number
           of pseudospectra.\n");
   }
-  
+
   if (!is.null(xraw) &&  !class(xraw) == "xcmsRaw") {
     stop ("Parameter xraw must be null or an xcmsRaw object\n");
   }
-  
+
   npspectra <- length(object@pspectra);
 
   cat("Start grouping after correlation.\n")
-  #Data is not preprocessed with groupFWHM 
+  #Data is not preprocessed with groupFWHM
   if(npspectra < 1){
     cat("Data was not preprocessed with groupFWHM, creating one pseudospectrum with all peaks.\n")
     #Group all peaks into one group
@@ -434,6 +388,13 @@ setMethod("groupCorr","xsAnnotate", function(object, cor_eic_th=0.75, pval=0.05,
   cnt <- length(object@pspectra);
   res <- list();
 
+  if (BPPARAM$workers > 1) {
+      parallel::clusterExport(
+          BiocParallel::bpbackend(),
+          list("getAllPeakEICs", "getEIC4Peaks")
+      )
+  }
+
   # Check LC information and calcCorr was selected
   if(calcCiS && object@xcmsSet@peaks[1,"rt"] != -1){
     if(!is.null(xraw)) {
@@ -443,54 +404,55 @@ setMethod("groupCorr","xsAnnotate", function(object, cor_eic_th=0.75, pval=0.05,
       scantimes[[1]] <- xraw@scantime
       pdata <- object@groupInfo
       EIC <- CAMERA:::getEICs(xraw, pdata, maxscans)
-      
-      res[[1]] <- calcCiS(object, EIC=EIC, corval=cor_eic_th, 
+
+      res[[1]] <- calcCiS(object, EIC=EIC, corval=cor_eic_th,
                           pval=pval, psg_list=psg_list);
-    }else if(is.na(object@sample[1])){
-      #Autoselect sample path for EIC correlation    
-      index <- rep(0, nrow(object@groupInfo));
-      
-      for(i in 1:npspectra){
-        index[object@pspectra[[i]]] <- object@psSamples[[i]];
-      }
+    }else if(is.na(object@sample[1])) {
+        #Autoselect sample path for EIC correlation
+        index <- rep(0, nrow(object@groupInfo));
 
-      #Generate EIC data
-      tmp <- getAllPeakEICs(object, index=index);
-      EIC <- tmp$EIC
-      scantimes <- tmp$scantimes
-      rm(tmp);
+        for(i in 1:npspectra){
+            index[object@pspectra[[i]]] <- object@psSamples[[i]];
+        }
 
-      res[[1]] <- calcCiS(object, EIC=EIC, corval=cor_eic_th, pval=pval, psg_list=psg_list);
 
-    } else {
-      #Calculate EIC-Correlation for selected sample(s)
-
-      for(i in object@sample){
-        index <- rep(i, nrow(object@groupInfo));
-        tmp <- getAllPeakEICs(object, index=index);
+        #Generate EIC data
+        tmp <- getAllPeakEICs(object, index=index, BPPARAM=BPPARAM);
         EIC <- tmp$EIC
         scantimes <- tmp$scantimes
         rm(tmp);
-        #new calcCL function with rcorr from Hmisc
-        if(length(res) == 0){
-          res[[1]] <- calcCiS(object, EIC=EIC, corval=cor_eic_th, pval=pval, psg_list=psg_list);
-        }else{
-          res[[1]] <- combineCalc(res[[1]],calcCiS(object, EIC=EIC, corval=cor_eic_th, pval=pval, psg_list=psg_list),method="sum")
+
+        res[[1]] <- calcCiS(object, EIC=EIC, corval=cor_eic_th, pval=pval, psg_list=psg_list);
+    } else {
+        #Calculate EIC-Correlation for selected sample(s)
+        tmp <- bplapply(object@sample, function(i) {
+            index <- rep(i, nrow(object@groupInfo));
+            tmp <- getAllPeakEICs(object, index=index);
+            EIC <- tmp$EIC
+            scantimes <- tmp$scantimes
+            rm(tmp);
+            calcCiS(object, EIC=EIC, corval=cor_eic_th, pval=pval, psg_list=psg_list)
+        }, BPPARAM = BPPARAM)
+
+        if (length(tmp) > 1) {
+            res[[1]] <- Reduce(function(x, y) combineCalc(x, y, method="sum"), tmp)
+        } else {
+            res <- tmp
         }
-      }
-      res[[1]][,3] <- res[[1]][,3] / length(object@sample)
+
+        res[[1]][,3] <- res[[1]][,3] / length(object@sample)
     }
   } else if(calcCiS && object@xcmsSet@peaks[1,"rt"] == -1){
     cat("Object contains no retention time data!\n");
   }
-  
+
   # Check if sample size > 3 and calcCaS was selected
   if( length(object@xcmsSet@filepaths) > 3 && calcCaS){
     res[[length(res)+1]] <- calcCaS(object, corval=cor_exp_th, pval=pval, intval=intval);
   }else if(length(object@xcmsSet@filepaths) <= 3 && calcCaS){
     cat("Object has to contain more than 3 samples to calculate correlation accros samples!\n");
   }
-  
+
   #If object has isotope information and calcIso was selected
   if (calcIso) {
     if (nrow(object@isoID) > 0) {
@@ -506,7 +468,7 @@ setMethod("groupCorr","xsAnnotate", function(object, cor_eic_th=0.75, pval=0.05,
     resMat <- combineCalc(res[[1]], res[[2]], method="sum");
     for( i in 3:length(res)){
       resMat <- combineCalc(resMat, res[[i]], method="sum");
-    }         
+    }
   }else if(length(res) == 2){
     #combine one time
     resMat <- combineCalc(res[[1]], res[[2]], method="sum")
@@ -523,56 +485,56 @@ setMethod("groupCorr","xsAnnotate", function(object, cor_eic_th=0.75, pval=0.05,
   #}
 
   #Perform graph seperation to seperate co-eluting pseudospectra
-  object <- calcPC(object, method=graphMethod, ajc=resMat, psg_list=psg_list);                                   
+  object <- calcPC(object, method=graphMethod, ajc=resMat, psg_list=psg_list);
 
   #Create pc groups based on correlation results
-  cat("xsAnnotate has now", length(object@pspectra), "groups, instead of", cnt, "\n"); 
+  cat("xsAnnotate has now", length(object@pspectra), "groups, instead of", cnt, "\n");
 
   return(invisible(object));
 })
 
 
-setGeneric("findIsotopes", function(object, maxcharge=3, maxiso=4, ppm=5, mzabs=0.01, 
-                                    intval=c("maxo","into","intb"),minfrac=0.5, 
+setGeneric("findIsotopes", function(object, maxcharge=3, maxiso=4, ppm=5, mzabs=0.01,
+                                    intval=c("maxo","into","intb"),minfrac=0.5,
                                     isotopeMatrix=NULL,filter=TRUE) standardGeneric("findIsotopes"));
 
-setMethod("findIsotopes", "xsAnnotate", 
-  function(object, maxcharge=3, maxiso=4, ppm=5, mzabs=0.01, 
+setMethod("findIsotopes", "xsAnnotate",
+  function(object, maxcharge=3, maxiso=4, ppm=5, mzabs=0.01,
                    intval=c("maxo","into","intb"), minfrac=0.5,  isotopeMatrix=NULL,
            filter=TRUE){
-  
-  #searches in every pseudospectrum after mass differences, 
+
+  #searches in every pseudospectrum after mass differences,
   #which matches isotope distances
-  
+
   ####Test arguments####
-  #test maxcharge  
+  #test maxcharge
   if(!is.wholenumber(maxcharge) || maxcharge < 1){
     stop("Invalid argument 'maxcharge'. Must be integer and > 0.\n")
   }
-  
+
   #test maxiso
   if(!is.wholenumber(maxiso) || maxiso < 1){
     stop("Invalid argument 'maxiso'. Must be integer and > 0.\n")
   }
-  
+
   #test ppm
   if(!is.numeric(ppm) || ppm < 0){
     stop("Invalid argument 'ppm'. Must be numeric and not negative.\n")
   }
-  
+
   #test mzabs
   if(!is.numeric(mzabs) || mzabs < 0){
     stop("Invalid argument 'mzabs'. Must be numeric and not negative.\n")
   }
-  
+
   #test intval
   intval <- match.arg(intval)
-  
+
   #test minfrac
   if(!is.numeric(minfrac) || minfrac < 0 || minfrac > 1){
     stop("Invalid argument 'minfrac'. Must be numeric and between 0 and 1.\n")
   }
-  
+
   #test isotopeMatrix
   if(!is.null(isotopeMatrix)){
     if(!is.matrix(isotopeMatrix) || ncol(isotopeMatrix) != 4 || nrow(isotopeMatrix) < 1
@@ -587,7 +549,7 @@ setMethod("findIsotopes", "xsAnnotate",
     isotopeMatrix <- calcIsotopeMatrix(maxiso=maxiso)
   }
   ####End Test arguments####
-  
+
   npeaks.global <- 0; #Counter for % bar
   npspectra <- length(object@pspectra);
 
@@ -596,7 +558,7 @@ setMethod("findIsotopes", "xsAnnotate",
   filter <- filter;
   #generate parameter list
   params <- list(maxiso=maxiso, maxcharge=maxcharge, devppm=devppm, mzabs=mzabs, IM=isotopeMatrix, minfrac=minfrac, filter=filter)
-  
+
   #Check if object have been preprocessed with groupFWHM
   if(npspectra < 1) {
     cat("xsAnnotate contains no pseudospectra. Regroup all peaks into one!\n")
@@ -604,7 +566,7 @@ setMethod("findIsotopes", "xsAnnotate",
     object@pspectra[[1]] <- seq(1:nrow(object@groupInfo));
     object@psSamples  <- 1;
   }
-  
+
   #number of peaks in pseudospectra
   ncl <- sum(sapply(object@pspectra, length));
 
@@ -625,11 +587,11 @@ setMethod("findIsotopes", "xsAnnotate",
     cat("Generating peak matrix!\n");
     imz  <- object@groupInfo[, "mz", drop=FALSE];
     irt  <- object@groupInfo[, "rt", drop=FALSE];
-    mint <- object@groupInfo[, intval, drop=FALSE];      
+    mint <- object@groupInfo[, intval, drop=FALSE];
   }
-  
+
   isotope   <- vector("list", length(imz));
-    
+
   isomatrix <- matrix(ncol=5, nrow=0);
   colnames(isomatrix) <- c("mpeak", "isopeak", "iso", "charge", "intrinsic")
 
@@ -644,21 +606,21 @@ setMethod("findIsotopes", "xsAnnotate",
 
     #Ouput counter
     percentOutput(npeaks.global, length(ipeak), ncl, lp)
-    
+
     #Pseudospectrum has more than one peak
     if(length(ipeak) > 1){
       #peak mass and intensity for pseudospectrum
       mz  <- imz[ipeak];
       int <- mint[ipeak, , drop=FALSE];
-      isomatrix <-  findIsotopesPspec(isomatrix, mz, ipeak, int, params)              
+      isomatrix <-  findIsotopesPspec(isomatrix, mz, ipeak, int, params)
     }
   }
 
   #clean isotopes
   if(is.null(nrow(isomatrix))) {
-    isomatrix = matrix(isomatrix, byrow=F, ncol=length(isomatrix)) 
+    isomatrix = matrix(isomatrix, byrow=F, ncol=length(isomatrix))
   }
-  
+
   #check if every isotope has only one annotation
   if(length(idx.duplicated <- which(duplicated(isomatrix[, 2]))) > 0){
     peak.idx <- unique(isomatrix[idx.duplicated, 2]);
@@ -675,8 +637,8 @@ setMethod("findIsotopes", "xsAnnotate",
       #which charges we have
       charges.list   <- isomatrix[peak.mono.idx, 4];
       tmp <- cbind(peak.mono,charges.list);
-      charges.length <- apply(tmp,1, function(x,isomatrix) { 
-        length(which(isomatrix[, 1] == x[1] & isomatrix[,4] == x[2])) }, 
+      charges.length <- apply(tmp,1, function(x,isomatrix) {
+        length(which(isomatrix[, 1] == x[1] & isomatrix[,4] == x[2])) },
                               isomatrix);
       idx <- which(charges.length == max(charges.length));
       if(length(idx) == 1){
@@ -735,7 +697,7 @@ setMethod("findIsotopes", "xsAnnotate",
   if(length(index <- which(isomatrix[,"iso"] > maxiso)) > 0){
     index2remove <- c(index2remove, index)
   }
-  
+
   if(length(index2remove) > 0){
     isomatrix <- isomatrix[-index2remove,, drop=FALSE];
   }
@@ -744,18 +706,18 @@ setMethod("findIsotopes", "xsAnnotate",
   #Create isotope matrix within object
   object@isoID <- matrix(nrow=0, ncol=4);
   colnames(object@isoID)  <-  c("mpeak", "isopeak", "iso", "charge");
-  
+
   #Add isomatrix to object
   object@isoID <- rbind(object@isoID, isomatrix[, 1:4]);
-  
+
   # counter for isotope groups
   globalcnt <- 0;
   oldnum    <- 0;
-  
+
   if(nrow(isomatrix) > 0){
     for( i in 1:nrow(isomatrix)){
       if(!isomatrix[i, 1] == oldnum){
-          globalcnt <- globalcnt+1; 
+          globalcnt <- globalcnt+1;
           isotope[[isomatrix[i, 1]]] <- list(y=globalcnt, iso=0, charge=isomatrix[i, 4], val=isomatrix[i, 5]);
           oldnum <- isomatrix[i, 1];
       };
@@ -768,10 +730,10 @@ setMethod("findIsotopes", "xsAnnotate",
   return(object);
 })
 
-setGeneric("findAdducts", function(object, ppm=5, mzabs=0.015, multiplier=3, polarity=NULL, 
-                                   rules=NULL, max_peaks=100, psg_list=NULL, intval="maxo") standardGeneric("findAdducts"));
-setMethod("findAdducts", "xsAnnotate", function(object, ppm=5, mzabs=0.015, multiplier=3, polarity=NULL, 
-                                                rules=NULL, max_peaks=100, psg_list=NULL, intval="maxo"){
+setGeneric("findAdducts", function(object, ppm=5, mzabs=0.015, multiplier=3, polarity=NULL,
+                                   rules=NULL, max_peaks=100, psg_list=NULL, intval="maxo", BPPARAM=bpparam()) standardGeneric("findAdducts"));
+setMethod("findAdducts", "xsAnnotate", function(object, ppm=5, mzabs=0.015, multiplier=3, polarity=NULL,
+                                                rules=NULL, max_peaks=100, psg_list=NULL, intval="maxo", BPPARAM=bpparam()){
   multFragments=FALSE;
   # Scaling ppm factor
   devppm <- ppm / 1000000;
@@ -785,9 +747,9 @@ setMethod("findAdducts", "xsAnnotate", function(object, ppm=5, mzabs=0.015, mult
   npspectra <- length(object@pspectra);
 
   #If groupCorr or groupFHWM have not been invoke, select all peaks in one sample
-  if(npspectra < 1){ 
+  if(npspectra < 1){
     npspectra <- 1;
-    object@pspectra[[1]] <- seq(1:nrow(object@groupInfo)); 
+    object@pspectra[[1]] <- seq(1:nrow(object@groupInfo));
   }
 
   if(object@sample[1] == 1 & length(sampnames(object@xcmsSet)) == 1){
@@ -800,12 +762,12 @@ setMethod("findAdducts", "xsAnnotate", function(object, ppm=5, mzabs=0.015, mult
     }else{
       index <- object@sample;
     }
-    
+
     cat("Generating peak matrix for peak annotation!\n");
     mint     <- groupval(object@xcmsSet,value=intval)[, index, drop=FALSE];
     peakmat  <- object@xcmsSet@peaks;
     groupmat <- groups(object@xcmsSet);
-    
+
     imz <- groupmat[, "mzmed"];
     irt <- groupmat[, "rtmed"];
     int.val <- c();
@@ -817,7 +779,7 @@ setMethod("findAdducts", "xsAnnotate", function(object, ppm=5, mzabs=0.015, mult
   isotopes  <- object@isotopes;
   # adductlist
   derivativeIons <- vector("list", length(imz));
-  
+
   # other variables
   oidscore <- c();
   index    <- c();
@@ -832,14 +794,14 @@ setMethod("findAdducts", "xsAnnotate", function(object, ppm=5, mzabs=0.015, mult
     if(is.null(rules)){
       if(!is.null(object@ruleset)){
         rules <- object@ruleset;
-      }else{ 
+      }else{
         cat("Ruleset could not read from object! Recalculate\n");
         rules <- calcRules(maxcharge=3, mol=3, nion=2, nnloss=1, nnadd=1, nh=2,
-                           polarity=object@polarity, 
+                           polarity=object@polarity,
                            lib.loc= .libPaths(), multFragments=multFragments);
         object@ruleset <- rules;
       }
-    }else{ 
+    }else{
       object@ruleset <- rules;
       cat("Found and use user-defined ruleset!");
     }
@@ -847,7 +809,7 @@ setMethod("findAdducts", "xsAnnotate", function(object, ppm=5, mzabs=0.015, mult
     if(!is.null(polarity)){
       if(polarity %in% c("positive","negative")){
         if(is.null(rules)){
-          rules <- calcRules(maxcharge=3, mol=3, nion=2, nnloss=1, nnadd=1, 
+          rules <- calcRules(maxcharge=3, mol=3, nion=2, nnloss=1, nnadd=1,
                               nh=2, polarity=polarity, lib.loc= .libPaths(),
                              multFragments=multFragments);
         }else{ cat("Found and use user-defined ruleset!");}
@@ -857,8 +819,8 @@ setMethod("findAdducts", "xsAnnotate", function(object, ppm=5, mzabs=0.015, mult
       index <- which(sampclass(object@xcmsSet) == object@category)[1] + object@sample-1;
       if(object@xcmsSet@polarity[index] %in% c("positive","negative")){
         if(is.null(rules)){
-          rules <- calcRules(maxcharge=3, mol=3, nion=2, nnloss=1, nnadd=1, 
-                             nh=2, polarity=object@xcmsSet@polarity[index], 
+          rules <- calcRules(maxcharge=3, mol=3, nion=2, nnloss=1, nnadd=1,
+                             nh=2, polarity=object@xcmsSet@polarity[index],
                              lib.loc= .libPaths(), multFragments=multFragments);
         }else{ cat("Found and use user-defined ruleset!");}
         object@polarity <- polarity;
@@ -868,27 +830,13 @@ setMethod("findAdducts", "xsAnnotate", function(object, ppm=5, mzabs=0.015, mult
     object@ruleset <- rules;
   }
 
-  ##Run as single or parallel mode
-  runParallel <- 0;
-
-  if(object@runParallel$enable == 1){
-    if(!(is.null(object@runParallel$cluster)) || mpi.comm.size() > 0 ){
-      runParallel <- 1;
-    }else{
-      warning("CAMERA runs in parallel mode, but no slaves are spawned!\nRun in single core mode!\n");
-      runParallel <- 0;
-    }
-  }else{
-    runParallel <- 0;
-  }
-
   if("quasi" %in% colnames(rules)){
   #backup for old rule sets
-   quasimolion <- which(rules[, "quasi"]== 1) 
+   quasimolion <- which(rules[, "quasi"]== 1)
   }else{
    quasimolion <- which(rules[, "mandatory"]== 1)
   }
-  
+
   #Remove recognized isotopes from annotation m/z vector
   for(x in seq(along = isotopes)){
     if(!is.null(isotopes[[x]])){
@@ -897,25 +845,25 @@ setMethod("findAdducts", "xsAnnotate", function(object, ppm=5, mzabs=0.015, mult
       }
     }
   }
-  
-  #counter for % bar
-  npeaks    <- 0; 
-  massgrp   <- 0;
-  ncl <- sum(sapply(object@pspectra, length));  
 
-  if (runParallel == 1) { ## ... we run in parallel mode
+  #counter for % bar
+  npeaks    <- 0;
+  massgrp   <- 0;
+  ncl <- sum(sapply(object@pspectra, length));
+
+
     if(is.null(psg_list)){
       cat('\nCalculating possible adducts in',npspectra,'Groups... \n');
       lp <- -1;
       pspectra_list <- 1:npspectra;
     }else{
-      cat('\nCalculating possible adducts in',length(psg_list),'Groups... \n'); 
+      cat('\nCalculating possible adducts in',length(psg_list),'Groups... \n');
       lp <- -1;
       pspectra_list <- psg_list;
     }
-    
+
     argList <- list();
-    
+
     cnt_peak <- 0;
     if(is.null(max_peaks)){
       max_peaks=100;
@@ -929,7 +877,7 @@ setMethod("findAdducts", "xsAnnotate", function(object, ppm=5, mzabs=0.015, mult
       rules.idx <- 1:nrow(rules);
       parent <- FALSE;
     }
-    
+
     #Add params to env
     paramsGlobal <- list()
     paramsGlobal$pspectra <- object@pspectra;
@@ -943,9 +891,9 @@ setMethod("findAdducts", "xsAnnotate", function(object, ppm=5, mzabs=0.015, mult
     paramsGlobal$rules.idx <- rules.idx;
     #create params
     #paramsGlobal <- list2env(params)
-    
+
     params <- list();
-    
+
     for(j in 1:length(pspectra_list)){
       i <- pspectra_list[j];
       params$i[[length(params$i)+1]] <- i;
@@ -956,20 +904,24 @@ setMethod("findAdducts", "xsAnnotate", function(object, ppm=5, mzabs=0.015, mult
         params <- list();
       }
     }
-    
+
     #Some informationen for the user
-    cat("Parallel mode: There are",length(argList), "tasks.\n")
-    
-    if(is.null(object@runParallel$cluster)){
-      #Use MPI
-      result <- xcmsPapply(argList, annotateGrpMPI2, paramsGlobal)
-    }else{
-      #For snow
-      result <- xcms:::xcmsClusterApply(cl=object@runParallel$cluster, 
-                                        x=argList, fun=annotateGrpMPI, 
-                                        msgfun=msgfun.snowParallel,
-                                        paramsGlobal)
+    if (BPPARAM$workers > 1) {
+        cat("Parallel mode: There are",length(argList), "tasks.\n")
+
+        parallel::clusterExport(
+            BiocParallel::bpbackend(),
+            list("annotateGrp", "massDiffMatrix", "createHypothese", "checkIsotopes", "checkHypothese",
+                 "checkQuasimolion", "checkOidCausality", "checkIps")
+        )
     }
+
+    result <- bplapply(
+        argList,
+        annotateGrpMPI,
+        globalParam = paramsGlobal,
+        BPPARAM = BPPARAM
+    )
 
     for(ii in 1:length(result)){
       if(length(result[[ii]]) == 0){
@@ -990,15 +942,15 @@ setMethod("findAdducts", "xsAnnotate", function(object, ppm=5, mzabs=0.015, mult
             massgrp <- massgrp+1;
             old_massgrp <- hypothese[hyp,"massgrp"];
             annoGrp <- rbind(annoGrp,c(massgrp,hypothese[hyp,"mass"],
-                                       sum(hypothese[ which(hypothese[,"massgrp"]==old_massgrp),"score"]),i) ) 
+                                       sum(hypothese[ which(hypothese[,"massgrp"]==old_massgrp),"score"]),i) )
           }
-          
+
           if(parent){
-            annoID <- rbind(annoID, cbind(peakid, massgrp, hypothese[hyp, c("ruleID","parent")]))  
+            annoID <- rbind(annoID, cbind(peakid, massgrp, hypothese[hyp, c("ruleID","parent")]))
           }else{
             annoID <- rbind(annoID, cbind(peakid, massgrp, hypothese[hyp, c("ruleID")],NA))
           }
-          
+
         }
       }
     }
@@ -1009,89 +961,9 @@ setMethod("findAdducts", "xsAnnotate", function(object, ppm=5, mzabs=0.015, mult
     object@annoID  <- annoID;
     object@annoGrp <- annoGrp;
     return(object)
-  } else {
-    ##Single Core Mode
-    if(is.null(psg_list)){
-      cat('\nCalculating possible adducts in',npspectra,'Groups... \n % finished: '); 
-      lp <- -1;
-      pspectra_list <- 1:npspectra;
-    }else{
-      cat('\nCalculating possible adducts in',length(psg_list),'Groups... \n % finished: '); 
-      lp <- -1;
-      pspectra_list <- psg_list;
-      sum_peaks <- sum(sapply(object@pspectra[psg_list],length));
-    }
-    
-    if("typ" %in% colnames(rules)){
-      rules.idx <- which(rules[, "typ"]== "A")
-      parent <- TRUE;
-    }else{
-      #backup for old rule sets
-      rules.idx <- 1:nrow(rules);
-      parent <- FALSE;
-    }
-    
-    for(j in seq(along = pspectra_list)){
-      i <- pspectra_list[j];
-      
-      #peak index for those in pseudospectrum i
-      ipeak <- object@pspectra[[i]];
-
-      #percent output
-      npeaks.global <- npeaks.global + length(ipeak);
-      perc   <- round((npeaks.global) / ncl * 100)
-      perc   <- perc %/% 10 * 10;
-      
-      if (perc != lp && perc != 0) { 
-        cat(perc,' '); 
-        lp <- perc;
-      }
-      if (.Platform$OS.type == "windows"){ 
-        flush.console();
-      }
-      #end percent output
-
-      #check if the pspec contains more than one peak 
-      if(length(ipeak) > 1){
-        
-        hypothese <- annotateGrp(ipeak, imz, rules, mzabs, devppm, isotopes, quasimolion, rules.idx=rules.idx);
-        #save results
-        if(is.null(hypothese)){
-          next;
-        }
-        charge <- 0;
-        old_massgrp <- 0;
-        
-        #combine annotation hypotheses to annotation groups for one compound mass
-        for(hyp in 1:nrow(hypothese)){
-          peakid <- as.numeric(ipeak[hypothese[hyp, "massID"]]);
-          if(old_massgrp != hypothese[hyp, "massgrp"]) {
-            massgrp <- massgrp + 1;
-            old_massgrp <- hypothese[hyp, "massgrp"];
-            annoGrp <- rbind(annoGrp, c(massgrp, hypothese[hyp, "mass"], 
-                                         sum(hypothese[ which(hypothese[, "massgrp"] == old_massgrp), "score"]), i) ) 
-          }
-          if(parent){
-            annoID <- rbind(annoID, c(peakid, massgrp, hypothese[hyp, "ruleID"], ipeak[hypothese[hyp, "parent"]]))
-          }else{
-            annoID <- rbind(annoID, c(peakid, massgrp, hypothese[hyp, "ruleID"], NA))
-          }
-        }
-      }
-    }
-
-    derivativeIons <- getderivativeIons(annoID, annoGrp, rules, length(imz));
-
-    cat("\n");
-
-    object@derivativeIons <- derivativeIons;
-    object@annoID  <- annoID;
-    object@annoGrp <- annoGrp;
-    return(object)
-  }
 })
 
-annotateDiffreport <- function(object, sample=NA, nSlaves=1, sigma=6, perfwhm=0.6,
+annotateDiffreport <- function(object, sample=NA, BPPARAM=bpparam(), sigma=6, perfwhm=0.6,
   cor_eic_th=0.75, cor_exp_th=0.75, graphMethod="hcs", pval=0.05, calcCiS=TRUE,
   calcIso=FALSE, calcCaS=FALSE, maxcharge=3, maxiso=4, minfrac=0.5,
   ppm=5, mzabs=0.015, quick=FALSE, psg_list=NULL, rules=NULL,
@@ -1099,18 +971,18 @@ annotateDiffreport <- function(object, sample=NA, nSlaves=1, sigma=6, perfwhm=0.
   pval_th = NULL, fc_th = NULL, sortpval=TRUE, ...) {
 
   if (!class(object)=="xcmsSet") stop ("no xcmsSet object");
-  
+
   #use diffreport from xcms
   diffrep <- diffreport(object, sortpval=FALSE, ...);
-  
+
   if(quick){
     #Quick run, no groupCorr and findAdducts
-    xa <- xsAnnotate(object, sample=sample, nSlaves=nSlaves);
+    xa <- xsAnnotate(object, sample=sample);
     xa <- groupFWHM(xa, perfwhm=perfwhm, sigma=sigma);
     xa <- findIsotopes(xa, maxcharge=maxcharge, maxiso=maxiso, ppm=ppm, mzabs=mzabs)
     xa.result <- getPeaklist(xa);
   }else{
-    xa <- xsAnnotate(object, sample=sample, nSlaves=nSlaves);
+    xa <- xsAnnotate(object, sample=sample);
     xa <- groupFWHM(xa, perfwhm=perfwhm, sigma=sigma);
     xa <- findIsotopes(xa, maxcharge=maxcharge, maxiso=maxiso, ppm=ppm, mzabs=mzabs)
     if(is.null(psg_list) & is.null(pval_th) & is.null(fc_th)){
@@ -1124,7 +996,7 @@ annotateDiffreport <- function(object, sample=NA, nSlaves=1, sigma=6, perfwhm=0.
       if(is.null(psg_list)){
         psg_list <- 1:length(xa@pspectra);
       }
-      
+
       if(!is.null(pval_th)){
         #Find groups, which include features with p-val < pval_th
         index <- which(diffrep[, "pvalue"] < pval_th);
@@ -1137,7 +1009,7 @@ annotateDiffreport <- function(object, sample=NA, nSlaves=1, sigma=6, perfwhm=0.
           return(result);
         }
       }
-      
+
       if(!is.null(fc_th)){
         #Find groups, which include features with fc > fc_th
         index <- which(diffrep[, "fold"] > fc_th);
@@ -1150,7 +1022,7 @@ annotateDiffreport <- function(object, sample=NA, nSlaves=1, sigma=6, perfwhm=0.
           return(result);
         }
       }
-      
+
       if(length(psg_list) < 1){
         #no group satisfy conditions
         cat("No groups found, which satisfy your conditions!\n")
@@ -1158,25 +1030,26 @@ annotateDiffreport <- function(object, sample=NA, nSlaves=1, sigma=6, perfwhm=0.
         return(result);
       }
     }
-    
+
     #Include into psg_list all groups that has been created after groupCorr
     cnt <- length(xa@pspectra);
     xa <- groupCorr(
       xa,
       cor_eic_th=cor_eic_th, cor_exp_th=cor_exp_th, calcIso=calcIso, psg_list=psg_list,
-      pval=pval, graphMethod=graphMethod, calcCiS=calcCiS, calcCaS=calcCaS, intval=intval
+      pval=pval, graphMethod=graphMethod, calcCiS=calcCiS, calcCaS=calcCaS, intval=intval,
+      BPPARAM=BPPARAM
     )
-    
+
 
     if(!is.null(psg_list)){
       psg_list <- c(psg_list,(cnt+1):length(xa@pspectra));
     }
-    xa <- findAdducts(xa, multiplier=multiplier, ppm=ppm, mzabs=mzabs, 
+    xa <- findAdducts(xa, multiplier=multiplier, ppm=ppm, mzabs=mzabs,
                       polarity=polarity, rules=rules, psg_list=psg_list);
-    
+
     xa.result <- getPeaklist(xa);
   }
-  
+
   #combines results
   result <- cbind(diffrep, xa.result[, c("isotopes", "adduct", "pcgroup")])
   if(sortpval){
@@ -1184,7 +1057,7 @@ annotateDiffreport <- function(object, sample=NA, nSlaves=1, sigma=6, perfwhm=0.
     result <- result[order(result[, "pvalue"]), ];
   }
   return(result);
-} 
+}
 
 ###End xsAnnotate generic Methods###
 
@@ -1195,7 +1068,7 @@ annotateDiffreport <- function(object, sample=NA, nSlaves=1, sigma=6, perfwhm=0.
 #object - xsAnnotate
 #grp - pseudospectrum ID
 getpspectra <- function(object, grp=NULL){
-  
+
   if(is.null(grp)) {
     cat("Error: No grp number!\n");
   } else if(!(is.numeric(grp)) | any(grp > length(object@pspectra))) {
@@ -1207,9 +1080,9 @@ getpspectra <- function(object, grp=NULL){
       cat("Error: Pseudospectra selection contains no peaks.\n")
       return(NULL);
     }
-    #get ps number for selected peaks  
+    #get ps number for selected peaks
     grpvec <- unlist(sapply(grp, function(x) { rep(x, length(object@pspectra[[x]])) }))
-    
+
     #extract peaktable
     peaktable <- object@groupInfo[index,]
 
@@ -1223,13 +1096,13 @@ getpspectra <- function(object, grp=NULL){
 
     #default polarity set to positive
     polarity <- "+";
-    
+
     if(length(object@polarity) > 0){
       if(object@polarity == "negative"){
         polarity <- "-";
       }
     }
-    
+
     for(i in 1:length(lions)){
       if(!is.null(lions[[i]])){
         if(length(lions[[i]]) > 1){
@@ -1242,7 +1115,7 @@ getpspectra <- function(object, grp=NULL){
           adduct[i] <- paste(lions[[i]][[1]]$name,lions[[i]][[1]]$mass);
         }
       }
-        
+
       if(!is.null(liso[[i]])){
         if(liso[[i]]$iso == 0){
           iso.name <- "[M]";
@@ -1258,11 +1131,11 @@ getpspectra <- function(object, grp=NULL){
     }
 
     #Check if peaktable has only one row
-    if(is.null(nrow(peaktable))){ 
+    if(is.null(nrow(peaktable))){
       peaktable <- matrix(peaktable, byrow=F, ncol=length(peaktable));
     }
     colnames(peaktable) <- colnames(object@groupInfo)
-    
+
     return(invisible(data.frame(peaktable,isotopes,adduct,psg=grpvec,stringsAsFactors=FALSE)));
   }
 }
@@ -1270,7 +1143,7 @@ getpspectra <- function(object, grp=NULL){
 
 setGeneric("getPeaklist", function(object, intval="into") standardGeneric("getPeaklist"))
 setMethod("getPeaklist", "xsAnnotate", function(object, intval="into") {
-  
+
   if (! intval %in% colnames(peaks(object@xcmsSet))) {
        stop("unknown intensity value!")
   }
@@ -1284,15 +1157,15 @@ setMethod("getPeaklist", "xsAnnotate", function(object, intval="into") {
     #Case of xcmsSet with multiple samples
     #Use groupInfo information and replace intensity values
     peaktable <- object@groupInfo;
-    
+
     #get intensity values from xcmsSet
     grpval <- groupval(object@xcmsSet, value=intval);
-    
+
     #get column range for replacement
     grpval.ncol <- ncol(grpval)
     start <- ncol(peaktable) - grpval.ncol +1;
-    ende  <- start + grpval.ncol - 1; 
-    
+    ende  <- start + grpval.ncol - 1;
+
     peaktable[, start:ende] <- grpval;
   }
 
@@ -1300,16 +1173,16 @@ setMethod("getPeaklist", "xsAnnotate", function(object, intval="into") {
   adduct   <- vector("character", nrow(object@groupInfo));
   isotopes <- vector("character", nrow(object@groupInfo));
   pcgroup  <- vector("character", nrow(object@groupInfo));
-   
+
   #default polarity set to positive
   polarity <- "+";
-    
+
   if(length(object@polarity) > 0){
     if(object@polarity == "negative"){
       polarity <- "-";
     }
   }
-  
+
   #First isotope informationen and adduct informationen
   for(i in seq(along = isotopes)){
     #check if adduct annotation is present for peak i
@@ -1329,16 +1202,16 @@ setMethod("getPeaklist", "xsAnnotate", function(object, intval="into") {
       }
     } else {
       #no annotation empty name
-      adduct[i] <- ""; 
+      adduct[i] <- "";
     }
-    
+
     #Check if we have isotope informationen about peak i
     if(length(object@isotopes) > 0&& !is.null(object@isotopes[[i]])) {
       num.iso <- object@isotopes[[i]]$iso;
       #Which isotope peak is peak i?
       if(num.iso == 0){
         str.iso <- "[M]";
-      } else { 
+      } else {
         str.iso <- paste("[M+", num.iso, "]", sep="")
       }
       #Multiple charged?
@@ -1347,12 +1220,12 @@ setMethod("getPeaklist", "xsAnnotate", function(object, intval="into") {
       }else{
         isotopes[i] <- paste("[", object@isotopes[[i]]$y, "]", str.iso, polarity, sep="");
       }
-    } else { 
+    } else {
       #No isotope informationen available
-      isotopes[i] <- ""; 
+      isotopes[i] <- "";
     }
   }
-  
+
   #Have we more than one pseudospectrum?
   if(length(object@pspectra) < 1){
       pcgroup <- 0;
@@ -1362,7 +1235,7 @@ setMethod("getPeaklist", "xsAnnotate", function(object, intval="into") {
       pcgroup[index] <- i;
     }
   }
-          
+
   rownames(peaktable)<-NULL;#Bugfix for: In data.row.names(row.names, rowsi, i) :  some row.names duplicated:
   return(invisible(data.frame(peaktable, isotopes, adduct, pcgroup, stringsAsFactors=FALSE, row.names=NULL)));
 })
@@ -1371,41 +1244,41 @@ setGeneric("getReducedPeaklist", function(object, method = "median", intval = "i
 setMethod("getReducedPeaklist", "xsAnnotate", function(object, method = "median", intval = "into", default.adduct.info = "first", mzrt.range = FALSE, npeaks.sum = FALSE, cleanup = FALSE) {
   # Get Peaklist from object
   peaklist <- getPeaklist(object=object, intval=intval)
-  
+
   # Remove isotopes information
   peaklist <- peaklist[,-which(colnames(peaklist)=="isotopes")]
-  
+
   # Matrix with samples intensities
   if (nrow(object@xcmsSet@phenoData) <= 1) {
     subset_samp <- c((which(colnames(peaklist)=="sample")) : (ncol(peaklist)-1-1))
   } else {
     subset_samp <- c((ncol(peaklist)-nrow(object@xcmsSet@phenoData)-1) : (ncol(peaklist)-1-1))
   }
-  
+
   # Create reduced peak list
   peaklist_reduced <- by(data=peaklist, INDICES=peaklist$pcgroup, FUN=function(plist) {
     if (nrow(plist) > 1) {
       # Subset intensities
       pl.tab <- plist[, subset_samp, drop=FALSE]
-      
+
       ## Select appropriate mz/rt information
-      
+
       # Select default (first) adduct
       if (default.adduct.info == "first") {
         pl.max <- 1
       }
-      
+
       # Select adduct that has maximum intensities
       if (default.adduct.info == "maxint") {
         pl.max <- apply(X=pl.tab, MARGIN=1, FUN=function(x) { sum(x, na.rm=TRUE) } )
         pl.max <- which(pl.max==max(pl.max))[1]
       }
-      
+
       # Select adduct that has most peaks
       if (default.adduct.info == "maxpeaks") {
         pl.max <- which(plist$npeaks==max(plist$npeaks))[1]
       }
-      
+
       # Take lowest/highest values of mzmin, mzmax & rtmin, rtmax
       if (mzrt.range == TRUE) {
         plist[pl.max, "mzmin"] <- min(plist$mzmin)
@@ -1413,29 +1286,29 @@ setMethod("getReducedPeaklist", "xsAnnotate", function(object, method = "median"
         plist[pl.max, "rtmin"] <- min(plist$rtmin)
         plist[pl.max, "rtmax"] <- max(plist$rtmax)
       }
-      
+
       # Sum up all peaks found
       if (npeaks.sum == TRUE) {
         plist[pl.max, "npeaks"] <- sum(plist$npeaks)
       }
-      
+
       ## Selection methods
-      
+
       # Sum intensities of all adducts per sample
       if (method == "sum") {
         pl.met <- apply(X=pl.tab, MARGIN=2, FUN=function(x) { sum(x, na.rm=TRUE) } )
       }
-        
+
       # Median intensities of all adducts per sample
       if (method == "median") {
         pl.met <- apply(X=pl.tab, MARGIN=2, FUN=function(x) { median(x, na.rm=TRUE) } )
       }
-          
+
       # Only take the adduct line where intensities are highest
       if (method == "maxint") {
         pl.met <- pl.max
       }
-      
+
       # PCA of all adducts per samples
       if (method == "pca") {
         pl.tab[is.na(pl.tab)] <- 0
@@ -1444,72 +1317,72 @@ setMethod("getReducedPeaklist", "xsAnnotate", function(object, method = "median"
         pl.met[pl.met==0] <- NA
         pl.met <- pl.met + (abs(min(pl.met, na.rm=T)) * 2)
       }
-      
-      
+
+
       # Determine putative neutral adduct mass
       plist[pl.max, "adduct"] <- na.omit(as.numeric(unique(gsub('.* ', '', plist$adduct))))[1]
-      
+
       # Return line with max intensity
       plist[pl.max, subset_samp] <- pl.met
       plist <- plist[pl.max,]
     }
-    
+
     # Otherwise using default putative neutral mass of adduct
     if ( (is.na(plist$adduct)) || (plist$adduct == "") ) plist$adduct <- as.numeric(plist$mz)
-    
+
     # Return object
     plist
   } )
-  
+
   # Fix type
   peaklist_reduced <- lapply(X=peaklist_reduced, FUN=function(x) {
     x <- as.numeric(x)
     x
   } )
-  
+
   # Unlist
   peaklist_reduced <- data.frame(matrix(as.numeric(unlist(peaklist_reduced)), nrow=length(peaklist_reduced), byrow=TRUE))
   colnames(peaklist_reduced) <- colnames(peaklist)
-  
+
   # Sort
   peaklist_reduced <- peaklist_reduced[order(peaklist_reduced$pcgroup, decreasing=FALSE),]
   rownames(peaklist_reduced) <- peaklist_reduced$pcgroup
-  
+
   # Cleanup values in peak list
   if (cleanup == TRUE) {
     # Remove NAs & negative abundances in features
     pl.tmp <- peaklist_reduced[, subset_samp]
     pl.tmp[is.na(pl.tmp)] <- 0
     pl.tmp[pl.tmp < 0] <- 0
-    
+
     # Remove rows with only zeros
     rm_cc <- c()
     for (i in 1:nrow(pl.tmp)) {
       if (sum(pl.tmp[i,]) == 0) rm_cc <- c(rm_cc, i)
     }
     if (length(rm_cc) > 0) pl.tmp <- pl.tmp[-c(rm_cc),]
-    
+
     # Remove constant features (rows)
     #http://stackoverflow.com/questions/15068981/removal-of-constant-columns-in-r
     pl.tmp <- pl.tmp[!apply(pl.tmp, MARGIN=1, function(x) max(x,na.rm=TRUE) == min(x,na.rm=TRUE)),]
-    
+
     # Write back changes
     rm_row <- which(!(rownames(peaklist_reduced) %in% rownames(pl.tmp)))
     if (length(rm_row) > 0) peaklist_reduced <- peaklist_reduced[-c(rm_row),]
-    
+
     peaklist_reduced[, subset_samp] <- pl.tmp
   }
-  
+
   # Return data frame
   return(invisible(as.data.frame(peaklist_reduced)))
 })
 
-setGeneric("annotate", function(object, sample=NA, nSlaves=1, sigma=6, perfwhm=0.6, cor_eic_th=0.75, graphMethod="hcs",
-  pval=0.05, calcCiS=TRUE, calcIso=FALSE, calcCaS=FALSE, maxcharge=3, maxiso=4, minfrac=0.5, ppm=5, mzabs=0.015, 
+setGeneric("annotate", function(object, sample=NA, BPPARAM=bpparam(), sigma=6, perfwhm=0.6, cor_eic_th=0.75, graphMethod="hcs",
+  pval=0.05, calcCiS=TRUE, calcIso=FALSE, calcCaS=FALSE, maxcharge=3, maxiso=4, minfrac=0.5, ppm=5, mzabs=0.015,
   quick=FALSE, psg_list=NULL,  rules=NULL, polarity="positive", multiplier=3, max_peaks=100 ,intval="into") standardGeneric("annotate"))
 
-setMethod("annotate", "xcmsSet", function(object, sample=NA, nSlaves=1, sigma=6, perfwhm=0.6, cor_eic_th=0.75, graphMethod="hcs",
-  pval=0.05, calcCiS=TRUE, calcIso=FALSE, calcCaS=FALSE, maxcharge=3, maxiso=4, minfrac=0.5, ppm=5, mzabs=0.015, 
+setMethod("annotate", "xcmsSet", function(object, sample=NA, BPPARAM=bpparam(), sigma=6, perfwhm=0.6, cor_eic_th=0.75, graphMethod="hcs",
+  pval=0.05, calcCiS=TRUE, calcIso=FALSE, calcCaS=FALSE, maxcharge=3, maxiso=4, minfrac=0.5, ppm=5, mzabs=0.015,
   quick=FALSE, psg_list=NULL,  rules=NULL, polarity="positive", multiplier=3, max_peaks=100 ,intval="into") {
 
   #check intval
@@ -1524,17 +1397,17 @@ setMethod("annotate", "xcmsSet", function(object, sample=NA, nSlaves=1, sigma=6,
 
   if(quick){
     #Quick run, no groupCorr and findAdducts
-    xa <- xsAnnotate(object, sample=sample, nSlaves=nSlaves);
+    xa <- xsAnnotate(object, sample=sample);
     xa <- groupFWHM(xa, perfwhm=perfwhm, sigma=sigma, intval=intval);
     xa <- findIsotopes(xa, maxcharge=maxcharge, maxiso=maxiso, ppm=ppm, mzabs=mzabs, intval=intval, minfrac=minfrac)
 
   }else{
 
-    xa  <- xsAnnotate(object, sample=sample, nSlaves=nSlaves);
+    xa  <- xsAnnotate(object, sample=sample);
     xa  <- groupFWHM(xa, perfwhm=perfwhm, sigma=sigma, intval=intval);
     xa  <- findIsotopes(xa, maxcharge=maxcharge, maxiso=maxiso, ppm=ppm, mzabs=mzabs, intval=intval, minfrac=minfrac)
     cnt <- length(xa@pspectra);
-    xa  <- groupCorr(xa, cor_eic_th=cor_eic_th, graphMethod=graphMethod, calcIso=calcIso, calcCiS=calcCiS, calcCaS=calcCaS, psg_list=psg_list)
+    xa  <- groupCorr(xa, cor_eic_th=cor_eic_th, graphMethod=graphMethod, calcIso=calcIso, calcCiS=calcCiS, calcCaS=calcCaS, psg_list=psg_list, BPPARAM=BPPARAM)
     if(!is.null(psg_list)){
       psg_list <- c(psg_list,(cnt+1):length(xa@pspectra));
     }
@@ -1546,7 +1419,7 @@ setMethod("annotate", "xcmsSet", function(object, sample=NA, nSlaves=1, sigma=6,
 })
 
 ##Screen for mass differences
-findKendrickMasses <- function(object, masses=c(14, 14.01565), maxHomologue=4, 
+findKendrickMasses <- function(object, masses=c(14, 14.01565), maxHomologue=4,
                                error=0.002, time=60, intval="maxo",
                                plot=FALSE) {
 
@@ -1603,25 +1476,25 @@ while(length(allCandidates) > 0){
   remains <- difference.mz %% nominalMass
   #calculate quotient from division
   quotient <- difference.mz %/% nominalMass
-  
+
   #find candidates with remains = 0 and m/z difference in allowed range
   index <- which(remains == 0 & difference.mz <= maxHomologue * nominalMass
                  & difference.mz > 0
                  & abs(difference.rt) <= abs(quotient * time)
                  & sign(time) * difference.rt > 0
                  )
-  
+
   #do we have candidates, otherwise next
   if(length(index) < 1){
     allCandidates <- allCandidates[-1, drop=FALSE]
     next;
   }
-  
+
   index.Kendrick <- CAMERA:::fastMatch(kendrickMassDefect[allCandidates[index]],
-                                       kendrickMassDefect[allCandidates[1]], 
+                                       kendrickMassDefect[allCandidates[1]],
                                        tol=error)
   if(any(hit <- !sapply(index.Kendrick, is.null))){
-    hits <- c(1, index[which(hit)])  
+    hits <- c(1, index[which(hit)])
     results[[length(results)+1]] <- allCandidates[hits];
   }
   allCandidates <- allCandidates[-c(1, index[which(hit)]), drop=FALSE]
@@ -1644,7 +1517,7 @@ invisible(lapply(results, function(x){
 
 if(plot){
   #plot m/z - rt plot
-  plot(data.sorted[, 2], data.sorted[, 1], xlab="retention time [s]", 
+  plot(data.sorted[, 2], data.sorted[, 1], xlab="retention time [s]",
        ylab="m/z",main=paste("Kendrick Plot\nmz: nominal",masses[1]," exact",
                          masses[2]))
   color <- rainbow(length(results))
@@ -1653,7 +1526,7 @@ if(plot){
     index <<- index +1;
     points( data.sorted[x,2], data.sorted[x, 1], col=color[index],pch=20)
     lines(data.sorted[x,2],data.sorted[x, 1],col=color[index])
-  })  
+  })
 }
 
 colnames(resultMatrix)[1:6] <- c("Index","GIndex","KMass","KMassDefect","mz","rt")
@@ -1671,29 +1544,29 @@ colnames(resultMatrix)[1:6] <- c("Index","GIndex","KMass","KMassDefect","mz","rt
 
 findNeutralLossSpecs <- function(object, mzdiff=NULL, mzabs=0, mzppm=10) {
 
-  if (!class(object) == "xsAnnotate"){ 
+  if (!class(object) == "xsAnnotate"){
     stop ("Parameter object is no xsAnnotate object\n")
   }
-  
+
   if(is.null(mzdiff)){
     stop ("Parameter mzdiff must be set\n")
   }
-  
+
   if(!is.numeric(mzdiff) || any(mzdiff <= 0)) {
     stop ("Parameter mzdiff must be a positive numeric value\n")
   }
-  
+
   if(!is.numeric(mzabs) || mzabs < 0) {
     stop ("Parameter mzabs must be a positive numeric value\n")
   }
-  
+
   if(!is.numeric(mzppm) || mzppm < 0) {
     stop ("Parameter mzppm must be a positive numeric value\n")
   }
-  
+
   # get mz values from peaklist
   imz    <- object@groupInfo[, "mz"];
-  
+
   #get Isotopes
   isotopes  <- object@isotopes;
   #Remove recognized isotopes from annotation m/z vector
@@ -1704,12 +1577,12 @@ findNeutralLossSpecs <- function(object, mzdiff=NULL, mzabs=0, mzppm=10) {
       }
     }
   }
-  
+
   #Calculate mzrange
   nlmin <- mzdiff-mzabs
   nlmax <- mzdiff+mzabs
 
-  
+
   hits <- sapply(1:length(object@pspectra), function(j) {
     spec  <-  object@pspectra[[j]]
 
@@ -1739,26 +1612,26 @@ findNeutralLossSpecs <- function(object, mzdiff=NULL, mzabs=0, mzppm=10) {
 #mppam  - allowed relative error in ppm (not used)
 findNeutralLoss <- function(object, mzdiff=NULL, mzabs=0, mzppm=10) {
 
-  if (!class(object) == "xsAnnotate"){ 
+  if (!class(object) == "xsAnnotate"){
     stop ("Parameter object is no xsAnnotate object\n")
   }
-  
+
   if(is.null(mzdiff)){
     stop ("Parameter mzdiff must be set\n")
   }
-  
+
   if(!is.numeric(mzdiff) || any(mzdiff <= 0)) {
     stop ("Parameter mzdiff must be a positive numeric value\n")
   }
-  
+
   if(!is.numeric(mzabs) || mzabs < 0) {
     stop ("Parameter mzabs must be a positive numeric value\n")
   }
-  
+
   if(!is.numeric(mzppm) || mzppm < 0) {
     stop ("Parameter mzppm must be a positive numeric value\n")
   }
-  
+
   #Calculate mzrange
   nlmin <- mzdiff-mzabs
   nlmax <- mzdiff+mzabs
@@ -1767,13 +1640,13 @@ findNeutralLoss <- function(object, mzdiff=NULL, mzabs=0, mzppm=10) {
   xs <- new("xcmsSet");
 
   peaks <- matrix(ncol=ncol(object@groupInfo)+1, nrow=0);
- 
+
   sampnames(xs) <- c("NeutralLoss")
   sampclass(xs) <- c("NeutralLoss")
 
   # get mz values from peaklist
   imz    <- object@groupInfo[, "mz"];
-  
+
   #get Isotopes
   isotopes  <- object@isotopes;
   #Remove recognized isotopes from annotation m/z vector
@@ -1784,20 +1657,20 @@ findNeutralLoss <- function(object, mzdiff=NULL, mzabs=0, mzppm=10) {
       }
     }
   }
-  
+
   #Loop over all pseudospectra
   for(j in seq(along = object@pspectra)) {
-    
+
     #get specific pseudospectrum j
     spec  <-  object@pspectra[[j]]
     #lastcol <- ncol(spec);
-    
+
     #get mz values
-    mz  <-  imz[spec] 
-    
+    mz  <-  imz[spec]
+
     #generate distance matrix
     nl  <-  as.matrix(dist(mz, method="manhattan"))
-    
+
     hits <- c();
     for(x in seq_along(mz)){
       mzadd <- mz[x]*mzppm*10^-6
@@ -1805,7 +1678,7 @@ findNeutralLoss <- function(object, mzdiff=NULL, mzabs=0, mzppm=10) {
         next;
       }
       for(y in seq_along(nlmin)){
-        if(length( index <- which(nl[x,] > (nlmin[y]-mzadd) & 
+        if(length( index <- which(nl[x,] > (nlmin[y]-mzadd) &
           nl[x,] < (nlmax[y] + mzadd))) > 0 ){
           #found hit
           hits <- rbind(hits,cbind(x,index))
@@ -1826,15 +1699,15 @@ findNeutralLoss <- function(object, mzdiff=NULL, mzabs=0, mzppm=10) {
     for (f in seq_len(nrow(hits))) {
       # hit f
       hit <- hits[f,]
-        
-      
+
+
 
       #For each peak-pair save the greater peak(higher mz value) to peak table
       if (mz[hit[1]] > mz[hit[2]]) {
         newpeak <- object@groupInfo[spec[hit[1]],, drop=FALSE]
       } else {
         newpeak <- object@groupInfo[spec[hit[2]],, drop=FALSE]
-      }  
+      }
       peaks <- rbind(peaks, cbind(newpeak,j))
     }
   }
@@ -1849,22 +1722,6 @@ msgfun.snowParallel <- function(x,i){
   flush.console();
 }
 
-cleanParallel <- function(object){
-  ##testing objects
-  if (!class(object) == "xsAnnotate"){
-    stop ("xsa.pos is no xsAnnotate object")
-  }
-  
-  if(object@runParallel$enable == 1){
-    if(object@runParallel$mode == "Rmpi"){
-      mpi.close.Rslaves()
-    } else if(object@runParallel$mode == "snow" & !(is.null(object@runParallel$cluster))){
-      stopCluster(object@runParallel$cluster);
-    }
-    cat("Slaves were stopped!\n");
-  }
-}
-  
 ###End xsAnnotate exported Methods###
 
 
@@ -1874,33 +1731,33 @@ combinexsAnnos <- function(xsa.pos, xsa.neg, pos=TRUE, tol=2, ruleset=NULL){
   # two xsAnnotate objects (pos,neg)
   # pos: returns pos. (true) or neg. (false) peaklist;  default = TRUE
   # tol: max allowed time difference between pos and neg pseudospectra
-  
+
   ##testing objects
   if (!class(xsa.pos) == "xsAnnotate"){
     stop ("xsa.pos is no xsAnnotate object")
   }
-  if (!class(xsa.neg) == "xsAnnotate"){ 
+  if (!class(xsa.neg) == "xsAnnotate"){
     stop ("xsa.neg is no xsAnnotate object")
   }
   if (xsa.pos@polarity != "positive" & xsa.neg@polarity != "negative"){
     stop ("xsAnnotate object have unknown polarities.\nOnly positive or negative are allowed!")
   }
-  
+
   ##1. Step
   #get all rts for every pseudospectra
-  rt1 <- sapply(xsa.pos@pspectra, function(x) { 
-          mean(xsa.pos@groupInfo[x, "rt"]) 
+  rt1 <- sapply(xsa.pos@pspectra, function(x) {
+          mean(xsa.pos@groupInfo[x, "rt"])
     })
-  
-  rt2 <- sapply(xsa.neg@pspectra, function(x) { 
-          mean(xsa.neg@groupInfo[x, "rt"]) 
+
+  rt2 <- sapply(xsa.neg@pspectra, function(x) {
+          mean(xsa.neg@groupInfo[x, "rt"])
     })
-  
+
   #find matching pseudospectra
   ps.match <- CAMERA:::fastMatch(rt1, rt2, tol=tol);
   rules.pos <- xsa.pos@ruleset;
   rules.neg <- xsa.neg@ruleset;
-  
+
   #ruleset
   if(is.null(ruleset)){
     #generate M+H,M-H rule
@@ -1909,8 +1766,8 @@ combinexsAnnos <- function(xsa.pos, xsa.neg, pos=TRUE, tol=2, ruleset=NULL){
     }else{
       name <- "M-H/M+H";
     }
-    ruleset <- data.frame(name, 1, 1, 1, 1, 2.014552, 1, 1); 
-    colnames(ruleset) <- c("name", "nmol.pos", "nmol.neg", "charge.pos", "charge.neg", 
+    ruleset <- data.frame(name, 1, 1, 1, 1, 2.014552, 1, 1);
+    colnames(ruleset) <- c("name", "nmol.pos", "nmol.neg", "charge.pos", "charge.neg",
                            "massdiff", "ID.pos", "ID.neg");
   }else{
     #generate rules stated in ruleset
@@ -1918,16 +1775,16 @@ combinexsAnnos <- function(xsa.pos, xsa.neg, pos=TRUE, tol=2, ruleset=NULL){
       stop("Ruleset is no matrix or number of cols is unequal two");
     }else{
       #check provided ruleset
-      name <- c(); 
-      nmol.pos <- c(); 
+      name <- c();
+      nmol.pos <- c();
       nmol.neg <- c();
-      charge.pos <- c(); 
+      charge.pos <- c();
       charge.neg <- c();
       massdiff   <- c();
          apply(ruleset,1, function(x) {
             name <<- c(name,paste(rules.pos[x[1],"name"],rules.neg[x[2],"name"],sep="/"));
             nmol.pos <<- c(nmol.pos,rules.pos[x[1],"nmol"]);
-            nmol.neg <<- c(nmol.neg,rules.neg[x[2],"nmol"]);  
+            nmol.neg <<- c(nmol.neg,rules.neg[x[2],"nmol"]);
             charge.pos <<- c(charge.pos,rules.pos[x[1],"charge"]);
             charge.neg <<- c(charge.neg,rules.neg[x[2],"charge"]);
             massdiff <<- c(massdiff, rules.pos[x[1],"massdiff"] - rules.neg[x[2],"massdiff"]);
@@ -1942,17 +1799,17 @@ combinexsAnnos <- function(xsa.pos, xsa.neg, pos=TRUE, tol=2, ruleset=NULL){
     }
   }
 
-  #allocate variable for matching results 
+  #allocate variable for matching results
   endresult <- matrix(ncol=6, nrow=0);
   colnames(endresult) <- c("grp.pos", "peak.pos", "grp.neg", "peak.neg", "mass", "rule")
-   
+
   #Annotations from positive Samples
-  annoID.pos  <- xsa.pos@annoID; 
+  annoID.pos  <- xsa.pos@annoID;
   annoGrp.pos <- xsa.pos@annoGrp;
   #Annotations from negative Samples
   annoID.neg  <- xsa.neg@annoID;
   annoGrp.neg <- xsa.neg@annoGrp;
-  
+
   #Groups which can be deleted
   grp2del  <- c();
   grp2save <- c();
@@ -1962,7 +1819,7 @@ combinexsAnnos <- function(xsa.pos, xsa.neg, pos=TRUE, tol=2, ruleset=NULL){
   lp <- -1;
   ncl<-sum(sapply(ps.match,length));
   npeaks.global <- 0;
-  
+
   #for every pseudospectra
   for(i in seq(along=ps.match)){
     percentOutput(npeaks.global, length(ps.match[[i]]), ncl, lp)
@@ -1975,7 +1832,7 @@ combinexsAnnos <- function(xsa.pos, xsa.neg, pos=TRUE, tol=2, ruleset=NULL){
     #matrix stores matches
     result.matrix <- matrix(ncol=4, nrow=0);
     colnames(result.matrix) <- c("pos.peak.ID", "neg.peak.ID", "j", "rule");
-    
+
     #get all m/z values from pos pseudospectrum
     grp.pos <- getpspectra(xsa.pos, i);
     m.pos <- grp.pos[, "mz"]
@@ -1988,9 +1845,9 @@ combinexsAnnos <- function(xsa.pos, xsa.neg, pos=TRUE, tol=2, ruleset=NULL){
         }
       }
     }
-    
+
     na.ini.pos <- which(!is.na(m.pos)); #index of non NA values
-    
+
     if(length(na.ini.pos) < 1){
       next;
     }
@@ -2001,7 +1858,7 @@ combinexsAnnos <- function(xsa.pos, xsa.neg, pos=TRUE, tol=2, ruleset=NULL){
        #no annotation exists
        masslist.pos <- NULL;
     }
-    
+
     #for every matching neg pseudospectra
     for(j in seq(along=ps.match[[i]])){
       #get all m/z values from neg pseudospectrum
@@ -2031,9 +1888,9 @@ combinexsAnnos <- function(xsa.pos, xsa.neg, pos=TRUE, tol=2, ruleset=NULL){
 
       #match rules against m/z values
       results <- matrix(NA, nrow=length(m.pos), ncol=nrow(ruleset));
-      results[na.ini.pos, ] <- CAMERA:::combineHypothese(naOmit(m.pos), naOmit(m.neg), 
+      results[na.ini.pos, ] <- CAMERA:::combineHypothese(naOmit(m.pos), naOmit(m.neg),
                                                 ruleset, na.ini.pos, na.ini.neg);
-      
+
       if(!all(is.na(results))){
         #Found Hits between pos and neg datasets with ruleset
         for(l in 1:ncol(results)){
@@ -2041,7 +1898,7 @@ combinexsAnnos <- function(xsa.pos, xsa.neg, pos=TRUE, tol=2, ruleset=NULL){
           if(length(index) > 0){
             #peak index of matching peaks
             #first column pos, second neg
-            tmp <- matrix(c(xsa.pos@pspectra[[i]][index], 
+            tmp <- matrix(c(xsa.pos@pspectra[[i]][index],
                             xsa.neg@pspectra[[ps.match[[i]][j]]][results[index, l]]),
                           ncol=2);
             result.matrix <- rbind(result.matrix, cbind(tmp,ps.match[[i]][j],l));
@@ -2049,7 +1906,7 @@ combinexsAnnos <- function(xsa.pos, xsa.neg, pos=TRUE, tol=2, ruleset=NULL){
         }
       }
     }
-    
+
     if(! nrow(result.matrix) > 0){
       next; #Found no hit
     }
@@ -2072,13 +1929,13 @@ combinexsAnnos <- function(xsa.pos, xsa.neg, pos=TRUE, tol=2, ruleset=NULL){
             index <- index[-grp2save];
             mass <- 2;
             endresult <- rbind(endresult, c(i, result.matrix[ii, 1], result.matrix[ii, 3],
-                                            result.matrix[ii, 2], mass,result.matrix[ii, 4]));  
+                                            result.matrix[ii, 2], mass,result.matrix[ii, 4]));
           }else{
             #Found new annotation
             mass <- 1;
             endresult <- rbind(endresult, c(i, result.matrix[ii, 1], result.matrix[ii, 3],
                                             result.matrix[ii, 2], mass, result.matrix[ii, 4]));
-          }  
+          }
           #delete all other hypotheses
           grp2del  <- c(grp2del, annoID.pos[index, "grpID"]);
         }
@@ -2129,7 +1986,7 @@ combinexsAnnos <- function(xsa.pos, xsa.neg, pos=TRUE, tol=2, ruleset=NULL){
       }
     }
     #save results
-    xsa.pos@derivativeIons <- getderivativeIons(annoID.pos, annoGrp.pos, rules.pos, 
+    xsa.pos@derivativeIons <- getderivativeIons(annoID.pos, annoGrp.pos, rules.pos,
                                                 length(xsa.pos@isotopes));
     peaklist <- getPeaklist(xsa.pos);
     index    <- ncol(peaklist);
@@ -2172,7 +2029,7 @@ combinexsAnnos <- function(xsa.pos, xsa.neg, pos=TRUE, tol=2, ruleset=NULL){
   }
 
   return(peaklist);
-}    
+}
 
 
 combineHypothese <- function(mass.pos, mass.neg, ruleset, ini1, ini2, tol=0.02){
@@ -2197,11 +2054,11 @@ naOmit <- function(x) {
 # method - groupval parameter method
 # value - groupval parameter method
 getPeaks_selection <- function(xs, method="medret", value="into"){
-  
+
   if (!class(xs) == "xcmsSet") {
     stop ("Parameter xs is no xcmsSet object\n")
   }
-  
+
   # Testing if xcmsSet is grouped
   if (nrow(xs@groups) > 0 && length(xs@filepaths) > 1) {
     # get grouping information
@@ -2211,12 +2068,12 @@ getPeaks_selection <- function(xs, method="medret", value="into"){
      #rename column names
      cnames <- colnames(ts)
      if (cnames[1] == 'mzmed') {
-       cnames[1] <- 'mz' 
-     } else { 
+       cnames[1] <- 'mz'
+     } else {
        stop ('Peak information ?!?')
      }
      if (cnames[4] == 'rtmed') {
-       cnames[4] <- 'rt' 
+       cnames[4] <- 'rt'
      } else {
        stop ('Peak information ?!?')
      }
@@ -2226,7 +2083,7 @@ getPeaks_selection <- function(xs, method="medret", value="into"){
   } else {
     stop ('First argument must be a xcmsSet with group information or contain only one sample.')
   }
-  
+
   return(as.matrix(ts))
 }
 
@@ -2237,14 +2094,14 @@ getPeaks_selection <- function(xs, method="medret", value="into"){
 # index - sample index
 # index = -1 return complete peak table overall sample
 getPeaks <- function(xs, index=1){
- 
+
   if (!class(xs) == "xcmsSet") {
     stop ("Parameter xs is no xcmsSet object\n")
   }
   if (!is.numeric(index) && index > length(sampnames(xs)) | index < -1 | index == 0) {
     stop("Parameter index must be between 1 and number of samples or -1\n")
   }
-  
+
   #Testing if xcmsSet is grouped
   if (nrow(xs@groups) > 0) {
     #Should all peaks returned
@@ -2261,7 +2118,7 @@ getPeaks <- function(xs, index=1){
   } else {
     stop ('First argument must be a xcmsSet with group information or contain only one sample.')
   }
-  
+
   return(as.matrix(ts))
 }
 
@@ -2273,12 +2130,12 @@ percentOutput <- function(len.old, len.add, len.max, cnt){
   len <- len.old + len.add;
   perc <- round((len) / len.max * 100)
   perc <- perc %/% 10 * 10;
-  if (perc != cnt && perc != 0) { 
-    cat(perc,' '); 
+  if (perc != cnt && perc != 0) {
+    cat(perc,' ');
     cnt2 <- perc;
     eval.parent(substitute(cnt <- cnt2))
   }
-  if (.Platform$OS.type == "windows"){ 
+  if (.Platform$OS.type == "windows"){
     flush.console();
   }
   eval.parent(substitute(len.old <- len))

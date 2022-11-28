@@ -10,16 +10,16 @@ create.matrix <- function(dim1,dim2) {
 
 ##Calculate Correlation in Samples
 ##Needs: xsa object, EIC correlation matrix (from getAllPeakEICs), parameters
-setGeneric("calcCiS", function(object, EIC=EIC, corval=0.75, 
+setGeneric("calcCiS", function(object, EIC=EIC, corval=0.75,
                                               pval=0.05, psg_list=NULL) standardGeneric("calcCiS"))
-setMethod("calcCiS", "xsAnnotate", function(object, EIC=EIC, corval=0.75, 
+setMethod("calcCiS", "xsAnnotate", function(object, EIC=EIC, corval=0.75,
                                               pval=0.05, psg_list=NULL ){
 
   #Columns Peak 1, Peak 2, correlation coefficienct, Pseudospectrum Index
   resMat <- create.matrix(100000,4);
   colnames(resMat) <- c("x","y","cor","ps")
   cnt <- 0;
-  
+
   npeaks <- nrow(object@groupInfo);
 
   ncl <- sum(sapply(object@pspectra, length));
@@ -30,17 +30,17 @@ setMethod("calcCiS", "xsAnnotate", function(object, EIC=EIC, corval=0.75,
   if(npspectra < 1){
     npspectra <- 1;
     object@pspectra[[1]] <- seq(1:nrow(object@groupInfo));
-    cat('Calculating peak correlations in 1 group.\n % finished: '); 
+    cat('Calculating peak correlations in 1 group.\n % finished: ');
     lp <- -1;
     pspectra_list     <- 1;
     object@psSamples  <- 1;
   }else{
     if(is.null(psg_list)){
-      cat('\nCalculating peak correlations in',npspectra,'Groups... \n % finished: '); 
+      cat('\nCalculating peak correlations in',npspectra,'Groups... \n % finished: ');
       lp <- -1;
       pspectra_list <- 1:npspectra;
     }else{
-      cat('\nCalculating peak correlations in',length(psg_list),'Groups... \n % finished: '); 
+      cat('\nCalculating peak correlations in',length(psg_list),'Groups... \n % finished: ');
       lp <- -1;
       pspectra_list <- psg_list;
       ncl <- sum(sapply(object@pspectra[psg_list],length));
@@ -70,12 +70,12 @@ setMethod("calcCiS", "xsAnnotate", function(object, EIC=EIC, corval=0.75,
     npeaks.global <- npeaks.global + length(pi);
     perc   <- round((npeaks.global) / ncl * 100)
     perc   <- perc %/% 10 * 10;
-    if (perc != lp && perc != 0) { 
-      cat(perc,' '); 
+    if (perc != lp && perc != 0) {
+      cat(perc,' ');
       lp <- perc;
     }
 
-    if (.Platform$OS.type == "windows"){ 
+    if (.Platform$OS.type == "windows"){
       flush.console();
     }
     #end percent output
@@ -93,14 +93,14 @@ setMethod("calcCiS", "xsAnnotate", function(object, EIC=EIC, corval=0.75,
     #Set lower triangle to NA
     res$r[lower.tri(res$r,diag = TRUE)] <- NA;
     res$P[lower.tri(res$P,diag = TRUE)] <- NA;
-    
+
     #Find peaks with have correlation higher corr_threshold and p <= 0.05
     index <- which(( res$r > corval) & (res$P <= pval))
     if( (length(index) + cnt)  >= nrow(resMat)){
       #resize resMat
       resMat <- rbind(resMat, create.matrix(max(length(index)+1,100000),4));
     }
-    
+
     if(length(index) > 0){
      for( x in 1:(length(index))){
       col <- index[x] %/% npi + 1;
@@ -152,10 +152,10 @@ setMethod("calcCaS", "xsAnnotate", function(object, corval=0.75, pval=0.05,
     if(npspectra < 1){
       npspectra <- 1;
       object@pspectra[[1]] <- seq(1:nrow(object@groupInfo));
-      cat('Calculating peak correlations across samples.\n % finished: '); 
+      cat('Calculating peak correlations across samples.\n % finished: ');
       object@psSamples  <- 1;
     }else{
-      cat('\nCalculating peak correlations across samples.\n % finished: '); 
+      cat('\nCalculating peak correlations across samples.\n % finished: ');
     }
 
     npeaks <- 0;
@@ -164,17 +164,17 @@ setMethod("calcCaS", "xsAnnotate", function(object, corval=0.75, pval=0.05,
     for(i in 1:npspectra){
       pi  <- object@pspectra[[i]];
       npi <- length(pi);
-      
+
 
       #percent output
       npeaks.global <- npeaks.global + length(pi);
       perc   <- round((npeaks.global) / ncl * 100)
       perc   <- perc %/% 10 * 10;
-      if (perc != lp && perc != 0) { 
-        cat(perc,' '); 
+      if (perc != lp && perc != 0) {
+        cat(perc,' ');
         lp <- perc;
       }
-      if (.Platform$OS.type == "windows"){ 
+      if (.Platform$OS.type == "windows"){
         flush.console();
       }
       #end percent output
@@ -191,7 +191,7 @@ setMethod("calcCaS", "xsAnnotate", function(object, corval=0.75, pval=0.05,
       #Set lower triangle to NA
       res$r[lower.tri(res$r,diag = TRUE)] <- NA;
       res$P[lower.tri(res$P,diag = TRUE)] <- NA;
-      
+
       #Find peaks with have correlation higher corr_threshold and p <= 0.05
       index <- which(( res$r > corval) & (res$P <= pval))
       if((length(index) + cnt)  >= nrow(resMat)){
@@ -238,7 +238,7 @@ setMethod("calcIsotopes", "xsAnnotate", function(object){
     return(NULL);
   }else{
     if(nrow(object@isoID) > 0){
-      cat('\nCalculating isotope assignments in',npspectra,'Groups... \n % finished: '); 
+      cat('\nCalculating isotope assignments in',npspectra,'Groups... \n % finished: ');
       lp <- -1;
       for(i in 1:npspectra){
           pi <- object@pspectra[[i]]
@@ -248,12 +248,12 @@ setMethod("calcIsotopes", "xsAnnotate", function(object){
           npeaks.global <- npeaks.global + length(pi);
           perc   <- round((npeaks.global) / ncl * 100)
           perc   <- perc %/% 10 * 10;
-          if (perc != lp && perc != 0) { 
-            cat(perc,' '); 
+          if (perc != lp && perc != 0) {
+            cat(perc,' ');
             lp <- perc;
           }
 
-          if (.Platform$OS.type == "windows"){ 
+          if (.Platform$OS.type == "windows"){
             flush.console();
           }
           #end percent output
@@ -278,13 +278,13 @@ setMethod("calcIsotopes", "xsAnnotate", function(object){
               }
               resMat <- rbind(resMat, cbind(x=tmp2[ ,1], y=tmp2[ ,2], cor=1, ps=i));
           }
-      }          
+      }
     }else{
       cat('Object contains no Isotopes!\n')
       return(resMat);
     }
   }
-  return(resMat)  
+  return(resMat)
 })
 ##Methods for Combination of calc Results
 
@@ -303,18 +303,18 @@ setMethod("combineCalc", signature("matrix","matrix"), function(object1,object2,
 setGeneric("combineCalc.sum", function(object1,object2) standardGeneric("combineCalc.sum"))
 
 setMethod("combineCalc.sum", signature("matrix","matrix"), function(object1,object2){
-        
+
         if(ncol(object1) != 4){
           stop("first object is not a matrix with 4 columns");
         }
         if(ncol(object2) != 4){
           stop("second object is not a matrix with 4 columns");
         }
-          
+
         combination = new.env(hash = TRUE)
-        
-        apply(object1,1,function(x){ 
-          combination[[paste(x[c(1,2,4)],collapse=" ")]]<- x[3] 
+
+        apply(object1,1,function(x){
+          combination[[paste(x[c(1,2,4)],collapse=" ")]]<- x[3]
         })
 
         apply(object2,1,function(x){
@@ -328,7 +328,7 @@ setMethod("combineCalc.sum", signature("matrix","matrix"), function(object1,obje
         if(!is.null(combination[["NA NA NA"]])){
           rm("NA NA NA",envir=combination)
         }
-        
+
         resMat <- matrix(ncol=4, nrow=length(ls(combination)));
 
         i<-1;y<-c();
@@ -396,17 +396,17 @@ setMethod("calcPC.lpc", "xsAnnotate", function(object, ajc=NULL,
   for(j in 1:length(pspectra_list)){
     i  <- pspectra_list[j];#index of pseudospectrum
     pi <- object@pspectra[[i]]; #peak_id in pseudospectrum
-    
+
           #percent output
           npeaks.global <- npeaks.global + length(pi);
           perc   <- round((npeaks.global) / ncl * 100)
           perc   <- perc %/% 10 * 10;
-          if (perc != lp && perc != 0) { 
-            cat(perc,' '); 
+          if (perc != lp && perc != 0) {
+            cat(perc,' ');
             lp <- perc;
           }
 
-          if (.Platform$OS.type == "windows"){ 
+          if (.Platform$OS.type == "windows"){
             flush.console();
           }
           #end percent output
@@ -416,15 +416,15 @@ setMethod("calcPC.lpc", "xsAnnotate", function(object, ajc=NULL,
       g <- graph.data.frame(vertices=as.data.frame(pi),d=matrix(nrow=0,ncol=2), directed=FALSE)
     }else{
       g <- graph.data.frame(vertices=as.data.frame(pi),
-                            d=as.data.frame(ajc[index,1:3,drop=FALSE]), 
+                            d=as.data.frame(ajc[index,1:3,drop=FALSE]),
                             directed=FALSE)
     }
     lpc <- label.propagation.community(g,initial=0:(length(pi)-1))
-    
+
     if(is.list(lpc)){
       #new igraph package
       lpc <- lpc$membership - 1;
-    }        
+    }
     pspectra[[i]] <- pi[which(lpc==0)];
     if(max(lpc) > 0){
       for(ii in 1:max(lpc)){
@@ -478,12 +478,12 @@ setMethod("calcPC.hcs", "xsAnnotate", function(object, ajc=NULL,
           npeaks.global <- npeaks.global + length(pi);
           perc   <- round((npeaks.global) / ncl * 100)
           perc   <- perc %/% 10 * 10;
-          if (perc != lp && perc != 0) { 
-            cat(perc,' '); 
+          if (perc != lp && perc != 0) {
+            cat(perc,' ');
             lp <- perc;
           }
 
-          if (.Platform$OS.type == "windows"){ 
+          if (.Platform$OS.type == "windows"){
             flush.console();
           }
           #end percent output
@@ -495,10 +495,10 @@ setMethod("calcPC.hcs", "xsAnnotate", function(object, ajc=NULL,
       g <- ftM2graphNEL(ajc[index,1:2,drop=FALSE],W=ajc[index,3,drop=FALSE], V=as.character(pi), edgemode="undirected");
     }
     hcs <- highlyConnSG(g);
-    
+
     #order cluster after size
     cnts <- sapply(hcs$clusters,length);
-    grps <- 1:length(hcs$clusters);     
+    grps <- 1:length(hcs$clusters);
     grps <- grps[order(cnts, decreasing = TRUE)]
 
     for (ii in 1:length(grps)){
@@ -523,7 +523,7 @@ setMethod("calcPC.hcs", "xsAnnotate", function(object, ajc=NULL,
     }
 
   }
- 
+
   object@pspectra  <- pspectra;
   object@psSamples <- psSamples;
   cat("\n");
@@ -540,25 +540,25 @@ calcCL3 <- function(object, EIC=EIC, scantimes=scantimes, cor_eic_th=cor_eic_th,
   CIL  <- list();
   CI   <- NULL;
   ncl  <- length(CL);
-  
+
   npeaks <- 0; #Counter for % bar
   npspectra <- length(object@pspectra);
-  
+
   #Check if object have been preprocessed with groupFWHM
   if(npspectra < 1){
     npspectra <- 1;
     object@pspectra[[1]] <- seq(1:nrow(object@groupInfo));
-    cat('Calculating peak correlations for 1 big group.\nTry groupFWHM before, to reduce runtime. \n% finished: '); 
+    cat('Calculating peak correlations for 1 big group.\nTry groupFWHM before, to reduce runtime. \n% finished: ');
     lp <- -1;
     pspectra_list     <- 1;
     object@psSamples  <- 1;
   }else{
     if(is.null(psg_list)){
-      cat('\nCalculating peak correlations in',npspectra,'Groups... \n % finished: '); 
+      cat('\nCalculating peak correlations in',npspectra,'Groups... \n % finished: ');
       lp <- -1;
       pspectra_list <- 1:npspectra;
     }else{
-      cat('\nCalculating peak correlations in',length(psg_list),'Groups... \n % finished: '); 
+      cat('\nCalculating peak correlations in',length(psg_list),'Groups... \n % finished: ');
       lp <- -1;
       pspectra_list <- psg_list;
       ncl <- sum(sapply(object@pspectra[psg_list],length));
@@ -576,11 +576,11 @@ calcCL3 <- function(object, EIC=EIC, scantimes=scantimes, cor_eic_th=cor_eic_th,
     #percent output
     npeaks <- npeaks + length(pi);
     perc   <- round((npeaks) / ncl * 100)
-    if ((perc %% 10 == 0) && (perc != lp)) { 
-      cat(perc,' '); 
+    if ((perc %% 10 == 0) && (perc != lp)) {
+      cat(perc,' ');
       lp <- perc;
     }
-    if (.Platform$OS.type == "windows"){ 
+    if (.Platform$OS.type == "windows"){
       flush.console();
     }
     #end percent output
@@ -597,7 +597,7 @@ calcCL3 <- function(object, EIC=EIC, scantimes=scantimes, cor_eic_th=cor_eic_th,
     #Set lower triangle to NA
     res$r[lower.tri(res$r,diag = TRUE)] <- NA;
     res$P[lower.tri(res$P,diag = TRUE)] <- NA;
-    
+
     #Find peaks with have correlation higher corr_threshold and p <= 0.05
     index <- which(( res$r > cor_eic_th) & (res$P <= 0.05))
     if(length(index) > 0){
@@ -619,9 +619,9 @@ calcCL3 <- function(object, EIC=EIC, scantimes=scantimes, cor_eic_th=cor_eic_th,
     }
   }
 
-  if (length(CIL) >0){ 
+  if (length(CIL) >0){
     CI <- data.frame(t(sapply(CIL, function(x) x$p)), sapply(CIL, function(x) x$cor) );
-  } else { 
+  } else {
     return(NULL);
   }
   colnames(CI) <- c('xi', 'yi', 'cors');
@@ -646,10 +646,10 @@ calcCL <-function(object, EIC, scantimes, cor_eic_th, psg_list=NULL){
 #   CIL <- list()
   CI <- NULL;
   ncl<-length(CL);
-  
+
   npeaks=0;
   npspectra <- length(object@pspectra);
-  
+
   #Wenn groupFWHM nicht vorher aufgerufen wurde!
   if(npspectra<1){
     npspectra<-1;object@pspectra[[1]]<-seq(1:nrow(object@groupInfo));
@@ -748,16 +748,16 @@ getMaxScans <- function(object){
   nfiles <- length(filepaths(object@xcmsSet))
   maxscans <- 0
   if(nfiles == 1){
-    if (file.exists(filepaths(object@xcmsSet)[1])) { 
+    if (file.exists(filepaths(object@xcmsSet)[1])) {
       xraw <- xcmsRaw(filepaths(object@xcmsSet)[1],profstep=0)
-      maxscans <- length(xraw@scantime)     
+      maxscans <- length(xraw@scantime)
     }else {
       stop('Raw data file:',filepaths(object@xcmsSet)[1],' not found ! \n');
     }
   }else {
     #Get scantime length for every xraw
     for (f in 1:nfiles){
-      if(file.exists(filepaths(object@xcmsSet)[f])) { 
+      if(file.exists(filepaths(object@xcmsSet)[f])) {
       xraw <- xcmsRaw(filepaths(object@xcmsSet)[f], profstep=0);
       maxscans <- max(maxscans, length(xraw@scantime));
       } else {
@@ -768,9 +768,39 @@ getMaxScans <- function(object){
   return(maxscans)
 }
 
-setGeneric("getAllPeakEICs", function(object, index) standardGeneric("getAllPeakEICs"))
+getAllPeakEICsSample <- function(i, object, index, gval, maxscans) {
+    f <- as.numeric(names(index)[i])
+    #which peaks should read from this sample
+    idx.peaks <- index[[i]];
 
-setMethod("getAllPeakEICs", "xsAnnotate", function(object, index=NULL){
+    #check if we need data from sample f
+    if(length(idx.peaks) == 0){
+        NULL
+    }
+
+    #check if raw data file of sample f exists
+    if (file.exists(xcms::filepaths(object@xcmsSet)[f])) {
+        #read sample
+        xraw <- xcms::xcmsRaw(xcms::filepaths(object@xcmsSet)[f], profstep=0);
+
+        pdata <- as.data.frame(object@xcmsSet@peaks[gval[idx.peaks,f],,drop=FALSE]) # data for peaks from file f
+        if(length(which(is.na(pdata[,1]))) > 0){
+            cat("Warning: Found NA peaks in selected sample.\n");
+        }
+
+        #Generate raw data according to peak data
+        tmp_EIC <- getEIC4Peaks(xraw,pdata,maxscans)
+        rownames(tmp_EIC) <- idx.peaks
+        tmp_EIC
+
+    } else {
+        stop('Raw data file:',xcms::filepaths(object@xcmsSet)[f],' not found ! \n')
+    }
+}
+
+setGeneric("getAllPeakEICs", function(object, index, BPPARAM) standardGeneric("getAllPeakEICs"))
+
+setMethod("getAllPeakEICs", "xsAnnotate", function(object, index=NULL, BPPARAM=SerialParam()){
 
   #Checking parameter index
   if(is.null(index)){
@@ -780,16 +810,15 @@ setMethod("getAllPeakEICs", "xsAnnotate", function(object, index=NULL){
   }
 
   nfiles <- length(filepaths(object@xcmsSet))
-  scantimes <- list()
+  scantimes <- object@xcmsSet@rt$raw
+  maxscans <- max(lengths(scantimes));
 
   if(nfiles == 1){
     #Single sample experiment
-    if (file.exists(filepaths(object@xcmsSet)[1])) { 
+    if (file.exists(filepaths(object@xcmsSet)[1])) {
 
      xraw <- xcmsRaw(filepaths(object@xcmsSet)[1],profstep=0)
-     maxscans <- length(xraw@scantime)
-     scantimes[[1]] <- xraw@scantime
-     pdata <- as.data.frame(object@xcmsSet@peaks) 
+     pdata <- as.data.frame(object@xcmsSet@peaks)
 
      EIC <- create.matrix(nrow(pdata),maxscans)
      EIC[,] <- getEIC4Peaks(xraw,pdata,maxscans)
@@ -803,78 +832,37 @@ setMethod("getAllPeakEICs", "xsAnnotate", function(object, index=NULL){
 
     cat('Generating EIC\'s .. \n')
 
-    #na flag, stores if sample contains NA peaks
-    na.flag <- 0;
-    maxscans <- 0;
-
-    if (file.exists(filepaths(object@xcmsSet)[1])) { 
-      xraw <- xcmsRaw(filepaths(object@xcmsSet)[1],profstep=0)
-      maxscans <- length(xraw@scantime)
-    } else {
-      stop('Raw data file:',filepaths(object@xcmsSet)[1],' not found ! \n');
-    }
-
-    #generate EIC Matrix
-    EIC <- create.matrix(nrow(gval),maxscans)
-
     #loop over all samples
-    for (f in 1:nfiles){
-  
-      #which peaks should read from this sample    
-      idx.peaks <- which(index == f);
-  
-      #check if we need data from sample f
-      if(length(idx.peaks) == 0){
-        next;
-      }
-
-      #check if raw data file of sample f exists
-      if (file.exists(filepaths(object@xcmsSet)[f])) {
-        #read sample
-        xraw <- xcmsRaw(filepaths(object@xcmsSet)[f], profstep=0);
-        maxscans.tmp <- length(xraw@scantime);
-        scantimes[[f]] <- xraw@scantime
-        if(maxscans.tmp > maxscans){
-          #increase columns of EIC matrix
-          EIC <- cbind(EIC,create.matrix(nrow(gval),maxscans.tmp - maxscans));
-          maxscans <- maxscans.tmp;
-        }
-
-        pdata <- as.data.frame(object@xcmsSet@peaks[gval[idx.peaks,f],,drop=FALSE]) # data for peaks from file f
-
-        #Check if peak data include NA values
-        if(length(which(is.na(pdata[,1]))) > 0){
-            na.flag <- 1;
-        }
-
-        #Generate raw data according to peak data
-        EIC[idx.peaks,] <- getEIC4Peaks(xraw,pdata,maxscans)
-
-      } else {
-        stop('Raw data file:',filepaths(object@xcmsSet)[f],' not found ! \n')
-      }
-    }
-    if(na.flag ==1){
-      cat("Warning: Found NA peaks in selected sample.\n");
-    }
+    index <- split(seq(length(index)), index)
+    EIC <- do.call(rbind, bplapply(
+        seq(length(index)),
+        FUN = getAllPeakEICsSample,
+        object = object,
+        index = index,
+        gval = gval,
+        maxscans = maxscans,
+        BPPARAM = BPPARAM
+    ))
+    EIC <- EIC[order(as.numeric(rownames(EIC))), ]
+    rownames(EIC) <- NULL
   }
-  invisible(list(scantimes=scantimes,EIC=EIC)); 
+  invisible(list(scantimes=scantimes,EIC=EIC));
 })
 
-# 
+#
 # getAllPeakEICs <- function(xs,index=NULL){
-# 
+#
 #   peaki <- getPeaksIdxCol(xs,NULL)
 #   nfiles <- length(filepaths(xs))
 #   scantimes <- list()
 #   maxscans <- 0
-# 
+#
 #   if(is.null(index)){
 #     cat("Missing Index, generate all EICs from sample 1.\n");
 #     index <- rep(1,nrow(peaki));
 #   }
-#   cat('Generating EIC\'s .. \n') 
-#   if (nfiles > 1) { 
+#   cat('Generating EIC\'s .. \n')
+#   if (nfiles > 1) {
 #     for (f in 1:nfiles){
 #       xraw <- xcmsRaw(filepaths(xs)[f], profstep=0);
 #       maxscans <- max(maxscans, length(xraw@scantime));
@@ -883,7 +871,7 @@ setMethod("getAllPeakEICs", "xsAnnotate", function(object, index=NULL){
 #     EIC <- array(integer(0), c(nrow(peaki),maxscans))
 #     na.flag <- 0;
 #     for (f in 1:nfiles){
-#       if (file.exists(filepaths(xs)[f])) { 
+#       if (file.exists(filepaths(xs)[f])) {
 #         xraw <- xcmsRaw(filepaths(xs)[f], profstep=0);
 #         idx.peaks <- which(index == f);
 #         if(length(idx.peaks) > 0){
@@ -903,22 +891,22 @@ setMethod("getAllPeakEICs", "xsAnnotate", function(object, index=NULL){
 #       cat("Found NA peaks in selected samples. Those will be seperated in new pcgroups in each case.\nUse fillpeaks if not desired!\n");
 #     }
 #   }  else { ## create EIC's for single file
-#        if (file.exists(filepaths(xs)[1])) { 
+#        if (file.exists(filepaths(xs)[1])) {
 #           xraw <- xcmsRaw(filepaths(xs)[1],profstep=0)
 #           maxscans <- length(xraw@scantime)
 #           scantimes[[1]] <- xraw@scantime
-#           pdata <- as.data.frame(xs@peaks[peaki,]) 
-#           EIC <- array(NA,c(nrow(pdata),maxscans))   
+#           pdata <- as.data.frame(xs@peaks[peaki,])
+#           EIC <- array(NA,c(nrow(pdata),maxscans))
 #           EIC[,] <- getEIC4Peaks(xraw,pdata,maxscans)
-#         }  else stop('Raw data file:',filepaths(xs)[f],' not found ! \n') 
-#   } 
-#   invisible(list(scantimes=scantimes,EIC=EIC)); 
+#         }  else stop('Raw data file:',filepaths(xs)[f],' not found ! \n')
+#   }
+#   invisible(list(scantimes=scantimes,EIC=EIC));
 # }
-# 
+#
 
 getEIC4Peaks <- function(xraw,peaks,maxscans=length(xraw@scantime)){
   if (!is.double(xraw@env$mz) || !is.double(xraw@env$intensity) || !is.integer(xraw@scanindex)) stop('mz/int not double.')
-  npeaks <- dim(peaks)[1]; 
+  npeaks <- dim(peaks)[1];
   scans  <- length(xraw@scantime);
   eics <- matrix(NA,npeaks,maxscans);
   for (p in 1:npeaks) {
@@ -933,7 +921,7 @@ getEIC4Peaks <- function(xraw,peaks,maxscans=length(xraw@scantime)){
     eic <- .Call("getEIC",xraw@env$mz,xraw@env$intensity,xraw@scanindex,as.double(massrange),
       as.integer(scanrange),as.integer(length(xraw@scantime)), PACKAGE ='xcms' )$intensity;
     eic[eic==0] <- NA;
-    eics[p,scanrange[1]:scanrange[2]] <- eic; 
+    eics[p,scanrange[1]:scanrange[2]] <- eic;
   }
 eics
 }
@@ -966,49 +954,49 @@ getAllEICs <- function(xs,index=NULL,file=NULL) {
     cat("Missing Index, generate all EICs from sample 1.\n");
     index <- rep(1,nrow(peaki));
   }
-  cat('Generating EIC\'s .. \n') 
-  if (nfiles > 1) { 
+  cat('Generating EIC\'s .. \n')
+  if (nfiles > 1) {
 #       cat('Searching maxima .. \n')
       for (f in 1:nfiles){
-#         cat('Reading raw data file:',filepaths(xs)[f]) 
+#         cat('Reading raw data file:',filepaths(xs)[f])
         xraw <- xcmsRaw(filepaths(xs)[f],profstep=0)
-#         cat(',', length(xraw@scantime),'scans. \n') 
+#         cat(',', length(xraw@scantime),'scans. \n')
         maxscans <- max(maxscans,length(xraw@scantime))
         scantimes[[f]] <- xraw@scantime
       }
-      EIC <- array(integer(0),c(nrow(peaki),maxscans,1))     
+      EIC <- array(integer(0),c(nrow(peaki),maxscans,1))
       for (f in 1:nfiles){
-        if (file.exists(filepaths(xs)[f])) { 
-#           cat('Reading raw data file:',filepaths(xs)[f],'\n') 
+        if (file.exists(filepaths(xs)[f])) {
+#           cat('Reading raw data file:',filepaths(xs)[f],'\n')
           xraw <- xcmsRaw(filepaths(xs)[f],profstep=0)
-      #    cat('Generating EIC\'s .. \n') 
+      #    cat('Generating EIC\'s .. \n')
           idx.peaks <- which(index == f);
           if(length(idx.peaks)>0){
             pdata <- as.data.frame(xs@peaks[peaki[idx.peaks,f],]) # data for peaks from file f
             if(length(idx.peaks)==1){
               pdata <- t(pdata);
             }
-  #           if (f==1) EIC <- array(integer(0),c(nrow(pdata),maxscans,length(filepaths(xs))))   
+  #           if (f==1) EIC <- array(integer(0),c(nrow(pdata),maxscans,length(filepaths(xs))))
             EIC[idx.peaks,,1] <- getEICs(xraw,pdata,maxscans)
           }
         }
         else stop('Raw data file:',filepaths(xs)[f],' not found ! \n')
       }
   }  else { ## create EIC's for single file
-       if (file.exists(filepaths(xs)[1])) { 
-         #cat('Reading raw data file:',filepaths(xs)[1],'\n') 
+       if (file.exists(filepaths(xs)[1])) {
+         #cat('Reading raw data file:',filepaths(xs)[1],'\n')
           xraw <- xcmsRaw(filepaths(xs)[1],profstep=0)
-         #cat('Generating EIC\'s .. \n') 
+         #cat('Generating EIC\'s .. \n')
           maxscans <- length(xraw@scantime)
           scantimes[[1]] <- xraw@scantime
-          pdata <- as.data.frame(xs@peaks[peaki,]) 
-          EIC <- array(integer(0),c(nrow(pdata),maxscans,1))   
+          pdata <- as.data.frame(xs@peaks[peaki,])
+          EIC <- array(integer(0),c(nrow(pdata),maxscans,1))
           EIC[,,1] <- getEICs(xraw,pdata,maxscans)
-        }  else stop('Raw data file:',filepaths(xs)[f],' not found ! \n') 
-  } 
-   
+        }  else stop('Raw data file:',filepaths(xs)[f],' not found ! \n')
+  }
+
   if (!is.null(file)) save(EIC,scantimes,file=file,compress=TRUE)
-    else invisible(list(scantimes=scantimes,EIC=EIC)) 
+    else invisible(list(scantimes=scantimes,EIC=EIC))
 }
 
 getPeaksIdxCol <- function(xs, col=NULL) {
@@ -1051,26 +1039,26 @@ as.integer(length(xraw@scantime)), PACKAGE ='xcms' )
 
 
 fast_corr <- function(x){
-  
+
   x[is.na(x)] <- 1e30; #same factor as in rcorr
 
   p <- as.integer(ncol(x))
   if(p<1)
     stop("must have >1 column")
-  
+
   n <- as.integer(nrow(x))
   if(n<5)
     stop("must have >4 observations")
-  
+
   x <- scale(x);
   r <- crossprod(x) / (n-1);
-  
+
   r[r>1e29] <- NA; #sace factor as in rcorr
 
   npair <- matrix(rep(n,p*p),ncol=p)
 
   P <- matrix(2*(1-pt(abs(r)*sqrt(npair-2)/sqrt(1-r*r), npair-2)),ncol=p);
-  
+
   P[abs(r)==1] <- 0;
   diag(P) <- NA;
   invisible(list(r=r, n=npair, P=P))
