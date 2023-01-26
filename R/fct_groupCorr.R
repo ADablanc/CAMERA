@@ -926,6 +926,8 @@ getEIC4Peaks <- function(xraw,peaks,maxscans=length(xraw@scantime)){
 eics
 }
 
+setGeneric("getEIC4Peaks", function(xraw,peaks,maxscans=length(xraw@scantime)) standardGeneric("getEIC4Peaks"))
+
 getAllEICs <- function(xs,index=NULL,file=NULL) {
   ##old CAMERA
   ##index = sample
