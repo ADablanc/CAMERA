@@ -836,7 +836,7 @@ setMethod("getAllPeakEICsSample", "xsAnnotate", function(object, index=NULL, BPP
     index <- split(seq(length(index)), index)
     EIC <- do.call(rbind, bplapply(
         seq(length(index)),
-        FUN = Tronche_de_cake,
+        FUN = getAllPeakEICsSample,
         object = object,
         index = index,
         gval = gval,
