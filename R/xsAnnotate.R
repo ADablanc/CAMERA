@@ -391,7 +391,7 @@ setMethod("groupCorr","xsAnnotate", function(object, cor_eic_th=0.75, pval=0.05,
   if (BPPARAM$workers > 1) {
       parallel::clusterExport(
           BiocParallel::bpbackend(),
-          list("getAllPeakEICs", "getEIC4Peaks")
+          list("getAllPeakEICsSample", "getEIC4Peaks")
       )
   }
 
@@ -417,7 +417,7 @@ setMethod("groupCorr","xsAnnotate", function(object, cor_eic_th=0.75, pval=0.05,
 
 
         #Generate EIC data
-        tmp <- getAllPeakEICs(object, index=index, BPPARAM=BPPARAM);
+        tmp <- getAllPeakEICsSample(object, index=index, BPPARAM=BPPARAM);
         EIC <- tmp$EIC
         scantimes <- tmp$scantimes
         rm(tmp);
@@ -427,7 +427,7 @@ setMethod("groupCorr","xsAnnotate", function(object, cor_eic_th=0.75, pval=0.05,
         #Calculate EIC-Correlation for selected sample(s)
         tmp <- bplapply(object@sample, function(i) {
             index <- rep(i, nrow(object@groupInfo));
-            tmp <- getAllPeakEICs(object, index=index);
+            tmp <- getAllPeakEICsSample(object, index=index);
             EIC <- tmp$EIC
             scantimes <- tmp$scantimes
             rm(tmp);

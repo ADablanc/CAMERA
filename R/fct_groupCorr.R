@@ -9,7 +9,7 @@ create.matrix <- function(dim1,dim2) {
 }
 
 ##Calculate Correlation in Samples
-##Needs: xsa object, EIC correlation matrix (from getAllPeakEICs), parameters
+##Needs: xsa object, EIC correlation matrix (from getAllPeakEICsSample), parameters
 setGeneric("calcCiS", function(object, EIC=EIC, corval=0.75,
                                               pval=0.05, psg_list=NULL) standardGeneric("calcCiS"))
 setMethod("calcCiS", "xsAnnotate", function(object, EIC=EIC, corval=0.75,
@@ -798,9 +798,9 @@ getAllPeakEICsSample <- function(i, object, index, gval, maxscans) {
     }
 }
 
-setGeneric("getAllPeakEICs", function(object, index, BPPARAM) standardGeneric("getAllPeakEICs"))
+setGeneric("getAllPeakEICsSample", function(object, index, BPPARAM) standardGeneric("getAllPeakEICsSample"))
 
-setMethod("getAllPeakEICs", "xsAnnotate", function(object, index=NULL, BPPARAM=SerialParam()){
+setMethod("getAllPeakEICsSample", "xsAnnotate", function(object, index=NULL, BPPARAM=SerialParam()){
 
   #Checking parameter index
   if(is.null(index)){

@@ -30,7 +30,8 @@ export("annotate",
        "xsAnnotate",
        "compoundQuantiles",
        "compoundLibraries",
-       "massWindowSizes")
+       "massWindowSizes",
+       "getAllPeakEICsSample")
 
 exportClasses("xsAnnotate")
 exportClasses("compoundQuantiles")
@@ -45,7 +46,7 @@ exportMethods("plotEICs")
 exportMethods("plotPsSpectrum")
 exportMethods("getPeaklist")
 exportMethods("getReducedPeaklist")
-exportMethods("getAllPeakEICs")
+exportMethods("getAllPeakEICsSample")
 exportMethods("calcPC",
 	      "calcPC.lpc",
 	      "calcPC.hcs")
